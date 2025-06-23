@@ -17,8 +17,29 @@
             border-radius: 8px;
             cursor: pointer;
         }
-        .room-box:hover {
-            background: rgba(59, 130, 246, 0.2);
+        .room-overlay {
+            position: absolute;
+            border: 2px solid;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 40px;
+            min-height: 30px;
+        }
+        .room-overlay:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        .trade-btn.active {
+            background: #3b82f6;
+            color: white;
         }
     </style>
 </head>
@@ -65,9 +86,35 @@
                 </div>
             </div>
 
-            <!-- Column 2: Rooms -->
+            <!-- Column 2: Rooms & Visualization -->
             <div class="bg-white rounded-lg shadow-lg p-6">
-                <h2 class="text-xl font-bold mb-4">2. Project Rooms</h2>
+                <h2 class="text-xl font-bold mb-4">2. Project Rooms & Zones</h2>
+                
+                <!-- Visual Room Editor -->
+                <div id="roomEditor" class="bg-gray-100 rounded-lg h-64 relative mb-4 overflow-hidden">
+                    <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                        Upload a floor plan to see room zones
+                    </div>
+                </div>
+
+                <!-- Trade Selector -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Highlight Trade:</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="highlightTrade('electrical')" class="trade-btn px-3 py-2 text-sm border rounded hover:bg-blue-50" data-trade="electrical">
+                            💡 Electrical
+                        </button>
+                        <button onclick="highlightTrade('plumbing')" class="trade-btn px-3 py-2 text-sm border rounded hover:bg-green-50" data-trade="plumbing">
+                            🚰 Plumbing
+                        </button>
+                        <button onclick="highlightTrade('hvac')" class="trade-btn px-3 py-2 text-sm border rounded hover:bg-red-50" data-trade="hvac">
+                            🌡️ HVAC
+                        </button>
+                        <button onclick="highlightTrade('flooring')" class="trade-btn px-3 py-2 text-sm border rounded hover:bg-yellow-50" data-trade="flooring">
+                            🏠 Flooring
+                        </button>
+                    </div>
+                </div>
                 
                 <div id="roomsList" class="mb-4">
                     <p class="text-gray-500">No rooms added yet</p>
@@ -122,6 +169,8 @@
         // Global variables
         let rooms = [];
         let roomIdCounter = 1;
+        let selectedTrade = null;
+        let uploadedImage = null;
 
         // File handling
         function handleFile() {
@@ -138,18 +187,140 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 previewImage.src = e.target.result;
+                uploadedImage = e.target.result;
+                updateRoomEditor();
             };
             reader.readAsDataURL(file);
         }
 
+        // Update room editor with visual overlay
+        function updateRoomEditor() {
+            const editor = document.getElementById('roomEditor');
+            
+            if (uploadedImage) {
+                // Show uploaded image as background
+                editor.style.backgroundImage = `url(${uploadedImage})`;
+                editor.style.backgroundSize = 'contain';
+                editor.style.backgroundRepeat = 'no-repeat';
+                editor.style.backgroundPosition = 'center';
+                editor.innerHTML = '';
+                
+                // Add room overlays
+                rooms.forEach((room, index) => {
+                    const roomDiv = document.createElement('div');
+                    roomDiv.className = 'room-overlay';
+                    roomDiv.onclick = () => editRoom(room.id);
+                    
+                    // Position rooms based on index (simple grid layout)
+                    const cols = 3;
+                    const row = Math.floor(index / cols);
+                    const col = index % cols;
+                    const x = 20 + col * 80;
+                    const y = 20 + row * 60;
+                    const width = Math.min(70, room.area / 4);
+                    const height = Math.min(50, room.area / 6);
+                    
+                    roomDiv.style.cssText = `
+                        top: ${y}px;
+                        left: ${x}px;
+                        width: ${width}px;
+                        height: ${height}px;
+                        border-color: ${getRoomColor(room.type)};
+                        background: ${getRoomColor(room.type)}60;
+                    `;
+                    
+                    roomDiv.innerHTML = `
+                        <div style="text-align: center; font-size: 10px;">
+                            ${room.name}<br>
+                            <span style="font-size: 8px;">${room.area} sq ft</span>
+                        </div>
+                    `;
+                    
+                    editor.appendChild(roomDiv);
+                });
+            } else {
+                // Default view
+                editor.style.backgroundImage = 'none';
+                editor.innerHTML = `
+                    <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                        <div class="text-center">
+                            <i class="fas fa-home text-4xl mb-2"></i>
+                            <div>Upload a floor plan to see room zones</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function getRoomColor(type) {
+            const colors = {
+                living: '#3b82f6',
+                kitchen: '#10b981', 
+                dining: '#f59e0b',
+                bedroom: '#8b5cf6',
+                bathroom: '#ef4444',
+                garage: '#6b7280',
+                office: '#06b6d4'
+            };
+            return colors[type] || '#3b82f6';
+        }
+
+        function getTradeColor(trade) {
+            const colors = {
+                electrical: '#3b82f6',
+                plumbing: '#10b981',
+                hvac: '#ef4444',
+                flooring: '#f59e0b'
+            };
+            return colors[trade] || '#6b7280';
+        }
+
+        function highlightTrade(trade) {
+            // Reset all trade buttons
+            document.querySelectorAll('.trade-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Activate selected trade button
+            const btn = document.querySelector(`[data-trade="${trade}"]`);
+            if (btn) btn.classList.add('active');
+            
+            selectedTrade = selectedTrade === trade ? null : trade;
+            
+            // Highlight rooms with this trade
+            document.querySelectorAll('.room-overlay').forEach((roomEl, index) => {
+                const room = rooms[index];
+                if (!room) return;
+                
+                if (selectedTrade && room.trades.includes(selectedTrade)) {
+                    roomEl.style.borderColor = getTradeColor(selectedTrade);
+                    roomEl.style.background = getTradeColor(selectedTrade) + '80';
+                    roomEl.style.boxShadow = `0 0 15px ${getTradeColor(selectedTrade)}`;
+                    roomEl.style.opacity = '1';
+                } else if (selectedTrade) {
+                    roomEl.style.opacity = '0.3';
+                } else {
+                    roomEl.style.borderColor = getRoomColor(room.type);
+                    roomEl.style.background = getRoomColor(room.type) + '60';
+                    roomEl.style.boxShadow = 'none';
+                    roomEl.style.opacity = '1';
+                }
+            });
+        }
+
         // Floor plan analysis
         function analyzeFloorPlan() {
+            if (!uploadedImage) {
+                alert('Please upload a floor plan image first');
+                return;
+            }
+            
             alert('Analyzing floor plan...');
             
             // Simple: just add sample rooms
             setTimeout(() => {
                 addSampleRooms();
-                alert('Floor plan analyzed! Sample rooms added.');
+                alert('Floor plan analyzed! Sample rooms added and positioned on your layout.');
             }, 1000);
         }
 
@@ -161,17 +332,36 @@
             const area = prompt('Room area (sq ft):', '150');
             if (!area || isNaN(area)) return;
 
+            const typeOptions = 'Room type:\n1 = Living Room\n2 = Kitchen\n3 = Bedroom\n4 = Bathroom\n5 = Garage\n6 = Office\n\nEnter number (1-6):';
+            const typeChoice = prompt(typeOptions, '1');
+            
+            const types = ['living', 'kitchen', 'bedroom', 'bathroom', 'garage', 'office'];
+            const type = types[parseInt(typeChoice) - 1] || 'living';
+
             const room = {
                 id: roomIdCounter++,
                 name: name,
                 area: parseInt(area),
-                type: 'room',
-                trades: ['electrical']
+                type: type,
+                trades: getDefaultTrades(type)
             };
 
             rooms.push(room);
             updateRoomsList();
+            updateRoomEditor();
             updateCosts();
+        }
+
+        function getDefaultTrades(type) {
+            const defaultTrades = {
+                living: ['electrical', 'flooring'],
+                kitchen: ['electrical', 'plumbing'],
+                bedroom: ['electrical', 'flooring'],
+                bathroom: ['electrical', 'plumbing', 'hvac'],
+                garage: ['electrical'],
+                office: ['electrical', 'flooring']
+            };
+            return defaultTrades[type] || ['electrical'];
         }
 
         // Add sample rooms
@@ -186,6 +376,7 @@
             ];
             roomIdCounter = 7;
             updateRoomsList();
+            updateRoomEditor();
             updateCosts();
         }
 
@@ -224,6 +415,7 @@
             }
 
             updateRoomsList();
+            updateRoomEditor();
             updateCosts();
         }
 
@@ -285,6 +477,7 @@
 
         // Initialize
         updateCosts();
+        updateRoomEditor();
     </script>
 </body>
 </html>
