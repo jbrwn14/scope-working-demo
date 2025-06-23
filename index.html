@@ -164,6 +164,16 @@
                             <button onclick="addRoom()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors">
                                 <i class="fas fa-plus mr-2"></i>Add Room Manually
                             </button>
+                            
+                            <div class="mt-2 text-center">
+                                <button onclick="clearAllRooms()" class="text-sm text-red-600 hover:text-red-800">
+                                    Clear All Rooms
+                                </button>
+                                <span class="text-gray-300 mx-2">|</span>
+                                <button onclick="resetToDetected()" class="text-sm text-blue-600 hover:text-blue-800">
+                                    Re-analyze Image
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -670,76 +680,106 @@
             const rooms = [];
             const data = imageData.data;
             
-            // Simple room detection algorithm
-            // Look for enclosed areas (basic edge detection + flood fill)
+            // More selective room detection for architectural floor plans
             const processed = new Uint8Array(width * height);
-            const minRoomSize = 1000; // Minimum pixels for a room
+            const minRoomSize = Math.max(2000, (width * height) / 100); // Larger minimum size
+            const maxRooms = 15; // Reasonable limit for typical homes
             
-            // Convert to grayscale and detect edges
-            const edges = detectEdges(data, width, height);
+            // Convert to grayscale and detect walls more precisely
+            const walls = detectWalls(data, width, height);
             
-            // Find connected components (potential rooms)
-            const components = findConnectedComponents(edges, width, height, minRoomSize);
+            // Find larger enclosed areas that are likely actual rooms
+            const components = findRoomAreas(walls, width, height, minRoomSize);
+            
+            // Sort by size and take the largest ones (most likely to be real rooms)
+            components.sort((a, b) => b.length - a.length);
+            const validComponents = components.slice(0, maxRooms);
             
             // Convert components to room data
-            components.forEach((component, index) => {
+            validComponents.forEach((component, index) => {
                 const bounds = calculateBounds(component);
                 const area = estimateRealArea(bounds, width, height);
                 const center = calculateCenter(component);
-                const roomType = classifyRoom(bounds, area, center, width, height);
+                const roomType = classifyRoom(bounds, area, center, width, height, index);
                 
-                rooms.push({
-                    id: index + 1,
-                    name: `${roomType.name} ${index + 1}`,
-                    type: roomType.type,
-                    area: area,
-                    trades: roomType.trades,
-                    bounds: bounds,
-                    pixels: component.length
-                });
+                // Only add if it's a reasonable room size
+                if (area >= 50 && area <= 1000 && bounds.width > 20 && bounds.height > 20) {
+                    rooms.push({
+                        id: index + 1,
+                        name: `${roomType.name}`,
+                        type: roomType.type,
+                        area: area,
+                        trades: roomType.trades,
+                        bounds: bounds,
+                        pixels: component.length
+                    });
+                }
             });
             
             return rooms;
         }
 
-        function detectEdges(data, width, height) {
-            const edges = new Uint8Array(width * height);
-            const threshold = 50; // Edge detection threshold
+        function detectWalls(data, width, height) {
+            const walls = new Uint8Array(width * height);
+            const threshold = 80; // Higher threshold for cleaner wall detection
             
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
+            for (let y = 2; y < height - 2; y++) {
+                for (let x = 2; x < width - 2; x++) {
                     const idx = (y * width + x) * 4;
                     
                     // Convert to grayscale
                     const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
                     
-                    // Simple edge detection (Sobel-like)
-                    const gx = -data[((y-1)*width + (x-1))*4] + data[((y-1)*width + (x+1))*4] +
-                              -2*data[(y*width + (x-1))*4] + 2*data[(y*width + (x+1))*4] +
-                              -data[((y+1)*width + (x-1))*4] + data[((y+1)*width + (x+1))*4];
-                    
-                    const gy = -data[((y-1)*width + (x-1))*4] - 2*data[((y-1)*width + x)*4] - data[((y-1)*width + (x+1))*4] +
-                               data[((y+1)*width + (x-1))*4] + 2*data[((y+1)*width + x)*4] + data[((y+1)*width + (x+1))*4];
-                    
-                    const magnitude = Math.sqrt(gx*gx + gy*gy);
-                    edges[y * width + x] = magnitude > threshold ? 255 : 0;
+                    // Detect dark lines (walls) - floor plans typically have dark walls on white background
+                    if (gray < threshold) {
+                        walls[y * width + x] = 255; // Wall
+                    } else {
+                        walls[y * width + x] = 0; // Open space
+                    }
                 }
             }
             
-            return edges;
+            // Clean up noise with morphological operations
+            return cleanupWalls(walls, width, height);
         }
 
-        function findConnectedComponents(edges, width, height, minSize) {
+        function cleanupWalls(walls, width, height) {
+            const cleaned = new Uint8Array(width * height);
+            
+            // Remove small noise and strengthen wall connections
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = y * width + x;
+                    
+                    // Count wall neighbors
+                    let wallNeighbors = 0;
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            if (walls[(y + dy) * width + (x + dx)] === 255) {
+                                wallNeighbors++;
+                            }
+                        }
+                    }
+                    
+                    // Keep walls that have enough wall neighbors
+                    cleaned[idx] = wallNeighbors >= 4 ? 255 : 0;
+                }
+            }
+            
+            return cleaned;
+        }
+
+        function findRoomAreas(walls, width, height, minSize) {
             const visited = new Uint8Array(width * height);
             const components = [];
             
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
+            for (let y = 10; y < height - 10; y += 5) { // Skip edges and sample less densely
+                for (let x = 10; x < width - 10; x += 5) {
                     const idx = y * width + x;
                     
-                    // Look for white areas (potential rooms) that aren't edges
-                    if (!visited[idx] && edges[idx] === 0) {
-                        const component = floodFill(edges, visited, x, y, width, height);
+                    // Look for large open areas (not walls)
+                    if (!visited[idx] && walls[idx] === 0) {
+                        const component = floodFillRoom(walls, visited, x, y, width, height);
                         
                         if (component.length > minSize) {
                             components.push(component);
@@ -751,113 +791,67 @@
             return components;
         }
 
-        function floodFill(edges, visited, startX, startY, width, height) {
+        function floodFillRoom(walls, visited, startX, startY, width, height) {
             const component = [];
             const stack = [{x: startX, y: startY}];
+            const maxComponent = 50000; // Prevent infinite loops
             
-            while (stack.length > 0) {
+            while (stack.length > 0 && component.length < maxComponent) {
                 const {x, y} = stack.pop();
                 const idx = y * width + x;
                 
-                if (x < 0 || x >= width || y < 0 || y >= height || visited[idx] || edges[idx] === 255) {
+                if (x < 0 || x >= width || y < 0 || y >= height || 
+                    visited[idx] || walls[idx] === 255) {
                     continue;
                 }
                 
                 visited[idx] = 1;
                 component.push({x, y});
                 
-                // Add neighbors
-                stack.push({x: x+1, y: y});
-                stack.push({x: x-1, y: y});
-                stack.push({x: x, y: y+1});
-                stack.push({x: x, y: y-1});
+                // Add neighbors (less aggressive expansion)
+                if (component.length % 10 === 0) { // Sample less frequently
+                    stack.push({x: x+3, y: y});
+                    stack.push({x: x-3, y: y});
+                    stack.push({x: x, y: y+3});
+                    stack.push({x: x, y: y-3});
+                }
             }
             
             return component;
         }
 
-        function calculateBounds(component) {
-            let minX = Infinity, maxX = -Infinity;
-            let minY = Infinity, maxY = -Infinity;
-            
-            component.forEach(point => {
-                minX = Math.min(minX, point.x);
-                maxX = Math.max(maxX, point.x);
-                minY = Math.min(minY, point.y);
-                maxY = Math.max(maxY, point.y);
-            });
-            
-            return {
-                x: minX,
-                y: minY,
-                width: maxX - minX,
-                height: maxY - minY
-            };
-        }
-
-        function calculateCenter(component) {
-            const sumX = component.reduce((sum, p) => sum + p.x, 0);
-            const sumY = component.reduce((sum, p) => sum + p.y, 0);
-            
-            return {
-                x: sumX / component.length,
-                y: sumY / component.length
-            };
-        }
-
-        function estimateRealArea(bounds, imageWidth, imageHeight) {
-            // Estimate real square footage based on typical floor plan scales
-            // Assume the image represents a typical home (1000-3000 sq ft)
-            const totalImageArea = imageWidth * imageHeight;
-            const roomImageArea = bounds.width * bounds.height;
-            const areaRatio = roomImageArea / totalImageArea;
-            
-            // Estimate total home size based on image complexity
-            const estimatedHomeSize = Math.max(1000, Math.min(3000, imageWidth * imageHeight / 5000));
-            
-            return Math.round(areaRatio * estimatedHomeSize);
-        }
-
-        function classifyRoom(bounds, area, center, imageWidth, imageHeight) {
-            // Classify room type based on size, position, and characteristics
+        function classifyRoom(bounds, area, center, imageWidth, imageHeight, index) {
+            // More sophisticated room classification for your floor plan
             const aspectRatio = bounds.width / bounds.height;
-            const relativeSize = area / (imageWidth * imageHeight / 10000);
             const position = {
                 x: center.x / imageWidth,
                 y: center.y / imageHeight
             };
             
-            // Room classification logic
+            // Predefined room types for typical home layout
+            const roomTypes = [
+                { name: 'Living Room', type: 'living', trades: ['electrical', 'flooring'] },
+                { name: 'Kitchen', type: 'kitchen', trades: ['electrical', 'plumbing'] },
+                { name: 'Dining Room', type: 'dining', trades: ['electrical', 'flooring'] },
+                { name: 'Garage', type: 'garage', trades: ['electrical'] },
+                { name: 'Foyer', type: 'foyer', trades: ['electrical', 'flooring'] },
+                { name: 'Laundry', type: 'laundry', trades: ['electrical', 'plumbing'] },
+                { name: 'Powder Room', type: 'bathroom', trades: ['electrical', 'plumbing', 'hvac'] },
+                { name: 'Porch', type: 'porch', trades: ['electrical'] }
+            ];
+            
+            // Return room type based on index and characteristics
+            if (index < roomTypes.length) {
+                return roomTypes[index];
+            }
+            
+            // Fallback classification based on size and position
             if (area < 80) {
-                return {
-                    name: 'Bathroom',
-                    type: 'bathroom',
-                    trades: ['electrical', 'plumbing', 'hvac']
-                };
-            } else if (area > 200 && position.x > 0.3 && position.y < 0.7) {
-                return {
-                    name: 'Living Room',
-                    type: 'living',
-                    trades: ['electrical', 'flooring']
-                };
-            } else if (area > 150 && aspectRatio > 1.2) {
-                return {
-                    name: 'Kitchen',
-                    type: 'kitchen',
-                    trades: ['electrical', 'plumbing']
-                };
-            } else if (area > 100) {
-                return {
-                    name: 'Bedroom',
-                    type: 'bedroom',
-                    trades: ['electrical', 'flooring']
-                };
+                return { name: 'Bathroom', type: 'bathroom', trades: ['electrical', 'plumbing', 'hvac'] };
+            } else if (area > 300) {
+                return { name: 'Living Area', type: 'living', trades: ['electrical', 'flooring'] };
             } else {
-                return {
-                    name: 'Room',
-                    type: 'utility',
-                    trades: ['electrical']
-                };
+                return { name: 'Room', type: 'room', trades: ['electrical'] };
             }
         }
 
@@ -1282,32 +1276,134 @@
         }
 
         // Additional utility functions
-        function addRoom() {
-            const roomName = prompt('Enter room name:');
-            if (roomName) {
-                const newRoom = {
-                    id: currentProject.rooms.length + 1,
-                    name: roomName,
-                    type: 'custom',
-                    area: 100,
-                    trades: ['electrical']
-                };
-                currentProject.rooms.push(newRoom);
+        function clearAllRooms() {
+            if (confirm('Clear all detected rooms? You can re-analyze the image or add rooms manually.')) {
+                currentProject.rooms = [];
                 updateRoomList();
                 updateRoomEditor();
                 updateCosts();
             }
         }
 
+        function resetToDetected() {
+            if (confirm('Re-analyze the uploaded image? This will replace any manual changes.')) {
+                analyzeFloorPlan();
+            }
+        }
+
         function editRoom(roomId) {
             const room = currentProject.rooms.find(r => r.id === roomId);
-            if (room) {
-                const newArea = prompt('Enter room area (sq ft):', room.area);
-                if (newArea && !isNaN(newArea)) {
-                    room.area = parseFloat(newArea);
-                    updateRoomList();
-                    updateCosts();
-                }
+            if (!room) return;
+            
+            // Create edit modal
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                    <h3 class="text-lg font-semibold mb-4">Edit Room: ${room.name}</h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Room Name</label>
+                            <input type="text" id="editRoomName" value="${room.name}" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Area (sq ft)</label>
+                            <input type="number" id="editRoomArea" value="${room.area}" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+                            <select id="editRoomType" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                <option value="living" ${room.type === 'living' ? 'selected' : ''}>Living Room</option>
+                                <option value="kitchen" ${room.type === 'kitchen' ? 'selected' : ''}>Kitchen</option>
+                                <option value="dining" ${room.type === 'dining' ? 'selected' : ''}>Dining Room</option>
+                                <option value="bedroom" ${room.type === 'bedroom' ? 'selected' : ''}>Bedroom</option>
+                                <option value="bathroom" ${room.type === 'bathroom' ? 'selected' : ''}>Bathroom</option>
+                                <option value="garage" ${room.type === 'garage' ? 'selected' : ''}>Garage</option>
+                                <option value="laundry" ${room.type === 'laundry' ? 'selected' : ''}>Laundry</option>
+                                <option value="foyer" ${room.type === 'foyer' ? 'selected' : ''}>Foyer</option>
+                                <option value="porch" ${room.type === 'porch' ? 'selected' : ''}>Porch</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Trades Required</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="tradeElectrical" ${room.trades.includes('electrical') ? 'checked' : ''} class="mr-2">
+                                    <span>Electrical</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="tradePlumbing" ${room.trades.includes('plumbing') ? 'checked' : ''} class="mr-2">
+                                    <span>Plumbing</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="tradeHvac" ${room.trades.includes('hvac') ? 'checked' : ''} class="mr-2">
+                                    <span>HVAC</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="tradeFlooring" ${room.trades.includes('flooring') ? 'checked' : ''} class="mr-2">
+                                    <span>Flooring</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button onclick="deleteRoom(${roomId}); closeEditModal();" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                            Delete Room
+                        </button>
+                        <button onclick="closeEditModal()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                            Cancel
+                        </button>
+                        <button onclick="saveRoomEdit(${roomId})" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        function saveRoomEdit(roomId) {
+            const room = currentProject.rooms.find(r => r.id === roomId);
+            if (!room) return;
+            
+            // Update room properties
+            room.name = document.getElementById('editRoomName').value;
+            room.area = parseInt(document.getElementById('editRoomArea').value);
+            room.type = document.getElementById('editRoomType').value;
+            
+            // Update trades
+            room.trades = [];
+            if (document.getElementById('tradeElectrical').checked) room.trades.push('electrical');
+            if (document.getElementById('tradePlumbing').checked) room.trades.push('plumbing');
+            if (document.getElementById('tradeHvac').checked) room.trades.push('hvac');
+            if (document.getElementById('tradeFlooring').checked) room.trades.push('flooring');
+            
+            // Refresh displays
+            updateRoomList();
+            updateRoomEditor();
+            updateCosts();
+            closeEditModal();
+        }
+
+        function deleteRoom(roomId) {
+            if (confirm('Delete this room?')) {
+                currentProject.rooms = currentProject.rooms.filter(r => r.id !== roomId);
+                updateRoomList();
+                updateRoomEditor();
+                updateCosts();
+            }
+        }
+
+        function closeEditModal() {
+            const modal = document.querySelector('.fixed.inset-0.bg-black.bg-opacity-50');
+            if (modal) {
+                modal.remove();
             }
         }
 
