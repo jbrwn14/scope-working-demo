@@ -86,11 +86,17 @@
                             <div id="fileDropZone" class="file-drop-zone rounded-lg p-8 text-center mb-4">
                                 <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
                                 <p class="text-gray-600 mb-2">Drag & drop floor plan here</p>
-                                <p class="text-sm text-gray-500">PDF, JPG, PNG, or CAD files</p>
-                                <input type="file" id="fileInput" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.dwg" onchange="handleFileUpload(event)">
-                                <button onclick="document.getElementById('fileInput').click()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                                    Browse Files
-                                </button>
+                                <p class="text-sm text-gray-500 mb-4">PDF, JPG, PNG, or CAD files</p>
+                                <input type="file" id="fileInput" class="hidden" accept="image/*,.pdf,.dwg" capture="environment" onchange="handleFileUpload(event)">
+                                <div class="flex flex-col sm:flex-row gap-2 justify-center">
+                                    <button onclick="document.getElementById('fileInput').click()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                        📁 Browse Files
+                                    </button>
+                                    <button onclick="takePhoto()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                        📸 Take Photo
+                                    </button>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-2">💡 Tip: Take a photo of paper floor plans for instant analysis</p>
                             </div>
 
                             <div id="filePreview" class="hidden mb-4">
@@ -330,7 +336,115 @@
 
         let currentPriceBookTab = 'electrical';
 
-        // Initialize the application
+        function takePhoto() {
+            // Check if we're on mobile
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                // On mobile, trigger the camera directly
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.capture = 'environment'; // Use back camera
+                input.onchange = handleFileUpload;
+                input.click();
+            } else {
+                // On desktop, show instructions or use webcam
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    startWebcamCapture();
+                } else {
+                    alert('Camera not available on this device.\n\nOn mobile devices, this will open your camera to take a photo of floor plans.\n\nFor now, please use "Browse Files" to upload an image.');
+                }
+            }
+        }
+
+        function startWebcamCapture() {
+            // Create webcam modal for desktop users
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Take Photo of Floor Plan</h3>
+                        <button onclick="closeWebcam()" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <video id="webcam" class="w-full h-64 bg-gray-200 rounded mb-4" autoplay></video>
+                    <div class="flex justify-center space-x-4">
+                        <button onclick="capturePhoto()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            📸 Capture
+                        </button>
+                        <button onclick="closeWebcam()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                            Cancel
+                        </button>
+                    </div>
+                    <canvas id="photoCanvas" class="hidden"></canvas>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Start webcam
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: 'environment' // Prefer back camera
+                } 
+            })
+            .then(stream => {
+                const video = document.getElementById('webcam');
+                video.srcObject = stream;
+                window.currentStream = stream;
+            })
+            .catch(err => {
+                console.error('Error accessing webcam:', err);
+                alert('Unable to access camera. Please use "Browse Files" instead.');
+                closeWebcam();
+            });
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('webcam');
+            const canvas = document.getElementById('photoCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Set canvas size to video size
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Draw video frame to canvas
+            ctx.drawImage(video, 0, 0);
+
+            // Convert to blob and create file
+            canvas.toBlob(blob => {
+                const file = new File([blob], 'floor-plan-photo.jpg', { type: 'image/jpeg' });
+                
+                // Simulate file upload event
+                const fakeEvent = {
+                    target: {
+                        files: [file]
+                    }
+                };
+                
+                handleFileUpload(fakeEvent);
+                closeWebcam();
+            }, 'image/jpeg', 0.8);
+        }
+
+        function closeWebcam() {
+            // Stop camera stream
+            if (window.currentStream) {
+                window.currentStream.getTracks().forEach(track => track.stop());
+                window.currentStream = null;
+            }
+
+            // Remove modal
+            const modal = document.querySelector('.fixed.inset-0.bg-black.bg-opacity-75');
+            if (modal) {
+                modal.remove();
+            }
+        }
         document.addEventListener('DOMContentLoaded', function() {
             setupFileDropZone();
             loadPriceBook();
@@ -365,49 +479,386 @@
             const file = event.target.files[0];
             if (!file) return;
 
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/heic'];
+            if (!validTypes.includes(file.type)) {
+                alert('Please upload an image file (JPG, PNG, GIF) for floor plan analysis.\n\nPDF and CAD files will be supported in the full version.');
+                return;
+            }
+
+            // Check file size (max 20MB for phone photos)
+            if (file.size > 20 * 1024 * 1024) {
+                alert('File size too large. Please upload an image under 20MB.');
+                return;
+            }
+
             const preview = document.getElementById('filePreview');
             const previewImage = document.getElementById('previewImage');
             const fileName = document.getElementById('fileName');
 
             // Show file info
-            fileName.textContent = file.name;
+            const sizeText = file.size > 1024 * 1024 ? 
+                `${(file.size / 1024 / 1024).toFixed(1)} MB` : 
+                `${(file.size / 1024).toFixed(0)} KB`;
+            fileName.textContent = `${file.name} (${sizeText})`;
             preview.classList.remove('hidden');
 
-            // Create preview if it's an image
-            if (file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    previewImage.src = e.target.result;
+            // Create image preview with preprocessing for phone photos
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Preprocess image for better analysis
+                    const processedImageData = preprocessImage(img);
+                    previewImage.src = processedImageData;
+                    
+                    previewImage.onload = function() {
+                        // Update room editor with new image
+                        updateRoomEditor();
+                        
+                        // Show analysis button with enhanced styling
+                        const analyzeBtn = document.querySelector('button[onclick="analyzeFloorPlan()"]');
+                        analyzeBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                        analyzeBtn.classList.add('bg-blue-600', 'hover:bg-blue-700', 'animate-pulse');
+                        analyzeBtn.innerHTML = '<i class="fas fa-magic mr-2"></i>Analyze This Floor Plan';
+                        
+                        // Show helpful tip for phone photos
+                        if (file.size > 2 * 1024 * 1024) { // Likely a phone photo
+                            showPhotoTip();
+                        }
+                    };
                 };
-                reader.readAsDataURL(file);
-            } else {
-                previewImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZsb29yIFBsYW48L3RleHQ+PC9zdmc+';
-            }
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
 
-            // Simulate file processing
+        function preprocessImage(img) {
+            // Create canvas for image preprocessing
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Resize large images for better processing
+            const maxSize = 1200;
+            let { width, height } = img;
+            
+            if (width > maxSize || height > maxSize) {
+                const ratio = Math.min(maxSize / width, maxSize / height);
+                width *= ratio;
+                height *= ratio;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Draw and enhance image
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Apply filters to improve floor plan visibility
+            const imageData = ctx.getImageData(0, 0, width, height);
+            enhanceFloorPlan(imageData);
+            ctx.putImageData(imageData, 0, 0);
+            
+            return canvas.toDataURL('image/jpeg', 0.9);
+        }
+
+        function enhanceFloorPlan(imageData) {
+            const data = imageData.data;
+            
+            // Increase contrast and reduce noise for better wall detection
+            for (let i = 0; i < data.length; i += 4) {
+                // Convert to grayscale
+                const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                
+                // Increase contrast
+                const enhanced = Math.min(255, Math.max(0, (gray - 128) * 1.5 + 128));
+                
+                // Apply to all channels
+                data[i] = enhanced;     // Red
+                data[i + 1] = enhanced; // Green
+                data[i + 2] = enhanced; // Blue
+                // Alpha channel stays the same
+            }
+        }
+
+        function showPhotoTip() {
+            const tipDiv = document.createElement('div');
+            tipDiv.className = 'mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg';
+            tipDiv.innerHTML = `
+                <div class="flex items-start">
+                    <i class="fas fa-lightbulb text-blue-500 mt-1 mr-2"></i>
+                    <div class="text-sm text-blue-700">
+                        <strong>Photo tip:</strong> For best results with phone photos:
+                        <ul class="mt-1 ml-4 list-disc">
+                            <li>Ensure good lighting</li>
+                            <li>Hold phone directly above the floor plan</li>
+                            <li>Make sure all edges are visible</li>
+                            <li>Avoid shadows and glare</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            
+            const filePreview = document.getElementById('filePreview');
+            filePreview.appendChild(tipDiv);
+            
+            // Remove tip after 10 seconds
             setTimeout(() => {
-                analyzeFloorPlan();
-            }, 1000);
+                if (tipDiv.parentNode) {
+                    tipDiv.remove();
+                }
+            }, 10000);
         }
 
         function analyzeFloorPlan() {
-            // Simulate AI analysis
-            showLoadingMessage("Analyzing floor plan...");
-            
-            setTimeout(() => {
-                // Add sample rooms
-                currentProject.rooms = [
-                    { id: 1, name: 'Kitchen', type: 'kitchen', area: 180, trades: ['electrical', 'plumbing'] },
-                    { id: 2, name: 'Living Room', type: 'living', area: 240, trades: ['electrical', 'flooring'] },
-                    { id: 3, name: 'Master Bathroom', type: 'bathroom', area: 85, trades: ['electrical', 'plumbing', 'hvac'] },
-                    { id: 4, name: 'Bedroom 1', type: 'bedroom', area: 140, trades: ['electrical', 'flooring'] }
-                ];
+            const previewImage = document.getElementById('previewImage');
+            if (!previewImage.src || previewImage.src.includes('data:image/svg+xml')) {
+                alert('Please upload an image file (JPG, PNG) for analysis');
+                return;
+            }
 
-                updateRoomList();
-                updateRoomEditor();
-                calculateProjectCosts();
+            showLoadingMessage("Analyzing floor plan with AI...");
+            
+            // Create canvas for image analysis
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                // Perform actual image analysis
+                performImageAnalysis(canvas, ctx);
+            };
+            
+            img.src = previewImage.src;
+        }
+
+        function performImageAnalysis(canvas, ctx) {
+            try {
+                // Get image data for analysis
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                
+                // Analyze image to find rooms
+                const rooms = detectRoomsFromImage(imageData, canvas.width, canvas.height);
+                
+                setTimeout(() => {
+                    currentProject.rooms = rooms;
+                    updateRoomList();
+                    updateRoomEditor();
+                    calculateProjectCosts();
+                    hideLoadingMessage();
+                    
+                    if (rooms.length === 0) {
+                        alert('No rooms detected. Try uploading a clearer floor plan or add rooms manually.');
+                    } else {
+                        alert(`Successfully analyzed floor plan!\nDetected ${rooms.length} room(s).`);
+                    }
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Image analysis error:', error);
                 hideLoadingMessage();
-            }, 2000);
+                alert('Error analyzing image. Please try a different image or add rooms manually.');
+            }
+        }
+
+        function detectRoomsFromImage(imageData, width, height) {
+            const rooms = [];
+            const data = imageData.data;
+            
+            // Simple room detection algorithm
+            // Look for enclosed areas (basic edge detection + flood fill)
+            const processed = new Uint8Array(width * height);
+            const minRoomSize = 1000; // Minimum pixels for a room
+            
+            // Convert to grayscale and detect edges
+            const edges = detectEdges(data, width, height);
+            
+            // Find connected components (potential rooms)
+            const components = findConnectedComponents(edges, width, height, minRoomSize);
+            
+            // Convert components to room data
+            components.forEach((component, index) => {
+                const bounds = calculateBounds(component);
+                const area = estimateRealArea(bounds, width, height);
+                const center = calculateCenter(component);
+                const roomType = classifyRoom(bounds, area, center, width, height);
+                
+                rooms.push({
+                    id: index + 1,
+                    name: `${roomType.name} ${index + 1}`,
+                    type: roomType.type,
+                    area: area,
+                    trades: roomType.trades,
+                    bounds: bounds,
+                    pixels: component.length
+                });
+            });
+            
+            return rooms;
+        }
+
+        function detectEdges(data, width, height) {
+            const edges = new Uint8Array(width * height);
+            const threshold = 50; // Edge detection threshold
+            
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = (y * width + x) * 4;
+                    
+                    // Convert to grayscale
+                    const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                    
+                    // Simple edge detection (Sobel-like)
+                    const gx = -data[((y-1)*width + (x-1))*4] + data[((y-1)*width + (x+1))*4] +
+                              -2*data[(y*width + (x-1))*4] + 2*data[(y*width + (x+1))*4] +
+                              -data[((y+1)*width + (x-1))*4] + data[((y+1)*width + (x+1))*4];
+                    
+                    const gy = -data[((y-1)*width + (x-1))*4] - 2*data[((y-1)*width + x)*4] - data[((y-1)*width + (x+1))*4] +
+                               data[((y+1)*width + (x-1))*4] + 2*data[((y+1)*width + x)*4] + data[((y+1)*width + (x+1))*4];
+                    
+                    const magnitude = Math.sqrt(gx*gx + gy*gy);
+                    edges[y * width + x] = magnitude > threshold ? 255 : 0;
+                }
+            }
+            
+            return edges;
+        }
+
+        function findConnectedComponents(edges, width, height, minSize) {
+            const visited = new Uint8Array(width * height);
+            const components = [];
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = y * width + x;
+                    
+                    // Look for white areas (potential rooms) that aren't edges
+                    if (!visited[idx] && edges[idx] === 0) {
+                        const component = floodFill(edges, visited, x, y, width, height);
+                        
+                        if (component.length > minSize) {
+                            components.push(component);
+                        }
+                    }
+                }
+            }
+            
+            return components;
+        }
+
+        function floodFill(edges, visited, startX, startY, width, height) {
+            const component = [];
+            const stack = [{x: startX, y: startY}];
+            
+            while (stack.length > 0) {
+                const {x, y} = stack.pop();
+                const idx = y * width + x;
+                
+                if (x < 0 || x >= width || y < 0 || y >= height || visited[idx] || edges[idx] === 255) {
+                    continue;
+                }
+                
+                visited[idx] = 1;
+                component.push({x, y});
+                
+                // Add neighbors
+                stack.push({x: x+1, y: y});
+                stack.push({x: x-1, y: y});
+                stack.push({x: x, y: y+1});
+                stack.push({x: x, y: y-1});
+            }
+            
+            return component;
+        }
+
+        function calculateBounds(component) {
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+            
+            component.forEach(point => {
+                minX = Math.min(minX, point.x);
+                maxX = Math.max(maxX, point.x);
+                minY = Math.min(minY, point.y);
+                maxY = Math.max(maxY, point.y);
+            });
+            
+            return {
+                x: minX,
+                y: minY,
+                width: maxX - minX,
+                height: maxY - minY
+            };
+        }
+
+        function calculateCenter(component) {
+            const sumX = component.reduce((sum, p) => sum + p.x, 0);
+            const sumY = component.reduce((sum, p) => sum + p.y, 0);
+            
+            return {
+                x: sumX / component.length,
+                y: sumY / component.length
+            };
+        }
+
+        function estimateRealArea(bounds, imageWidth, imageHeight) {
+            // Estimate real square footage based on typical floor plan scales
+            // Assume the image represents a typical home (1000-3000 sq ft)
+            const totalImageArea = imageWidth * imageHeight;
+            const roomImageArea = bounds.width * bounds.height;
+            const areaRatio = roomImageArea / totalImageArea;
+            
+            // Estimate total home size based on image complexity
+            const estimatedHomeSize = Math.max(1000, Math.min(3000, imageWidth * imageHeight / 5000));
+            
+            return Math.round(areaRatio * estimatedHomeSize);
+        }
+
+        function classifyRoom(bounds, area, center, imageWidth, imageHeight) {
+            // Classify room type based on size, position, and characteristics
+            const aspectRatio = bounds.width / bounds.height;
+            const relativeSize = area / (imageWidth * imageHeight / 10000);
+            const position = {
+                x: center.x / imageWidth,
+                y: center.y / imageHeight
+            };
+            
+            // Room classification logic
+            if (area < 80) {
+                return {
+                    name: 'Bathroom',
+                    type: 'bathroom',
+                    trades: ['electrical', 'plumbing', 'hvac']
+                };
+            } else if (area > 200 && position.x > 0.3 && position.y < 0.7) {
+                return {
+                    name: 'Living Room',
+                    type: 'living',
+                    trades: ['electrical', 'flooring']
+                };
+            } else if (area > 150 && aspectRatio > 1.2) {
+                return {
+                    name: 'Kitchen',
+                    type: 'kitchen',
+                    trades: ['electrical', 'plumbing']
+                };
+            } else if (area > 100) {
+                return {
+                    name: 'Bedroom',
+                    type: 'bedroom',
+                    trades: ['electrical', 'flooring']
+                };
+            } else {
+                return {
+                    name: 'Room',
+                    type: 'utility',
+                    trades: ['electrical']
+                };
+            }
         }
 
         function updateRoomList() {
@@ -434,26 +885,73 @@
 
         function updateRoomEditor() {
             const editor = document.getElementById('roomEditor');
+            const previewImage = document.getElementById('previewImage');
+            
+            // Clear existing content
             editor.innerHTML = '';
-
-            // Add room visualizations
-            currentProject.rooms.forEach((room, index) => {
-                const roomDiv = document.createElement('div');
-                roomDiv.className = 'room-overlay';
-                roomDiv.style.cssText = `
-                    top: ${20 + (index % 2) * 120}px;
-                    left: ${20 + Math.floor(index / 2) * 140}px;
-                    width: ${Math.min(120, room.area / 2)}px;
-                    height: ${Math.min(100, room.area / 3)}px;
-                    border-color: ${getRoomColor(room.type)};
-                `;
-                roomDiv.innerHTML = `
-                    <div class="absolute inset-0 flex items-center justify-center text-xs font-medium">
-                        ${room.name}
+            
+            if (previewImage.src && !previewImage.src.includes('data:image/svg+xml')) {
+                // Show the uploaded image as background
+                editor.style.backgroundImage = `url(${previewImage.src})`;
+                editor.style.backgroundSize = 'contain';
+                editor.style.backgroundRepeat = 'no-repeat';
+                editor.style.backgroundPosition = 'center';
+                
+                // Add room overlays based on detected rooms
+                currentProject.rooms.forEach((room, index) => {
+                    const roomDiv = document.createElement('div');
+                    roomDiv.className = 'room-overlay';
+                    roomDiv.title = `${room.name} - ${room.area} sq ft`;
+                    
+                    if (room.bounds) {
+                        // Use actual detected bounds
+                        const editorRect = editor.getBoundingClientRect();
+                        const scaleX = 320 / previewImage.naturalWidth; // Editor width / image width
+                        const scaleY = 320 / previewImage.naturalHeight; // Editor height / image height
+                        const scale = Math.min(scaleX, scaleY);
+                        
+                        roomDiv.style.cssText = `
+                            top: ${room.bounds.y * scale}px;
+                            left: ${room.bounds.x * scale}px;
+                            width: ${room.bounds.width * scale}px;
+                            height: ${room.bounds.height * scale}px;
+                            border-color: ${getRoomColor(room.type)};
+                            background: ${getRoomColor(room.type)}40;
+                        `;
+                    } else {
+                        // Fallback positioning for manually added rooms
+                        roomDiv.style.cssText = `
+                            top: ${20 + (index % 2) * 120}px;
+                            left: ${20 + Math.floor(index / 2) * 140}px;
+                            width: ${Math.min(120, room.area / 2)}px;
+                            height: ${Math.min(100, room.area / 3)}px;
+                            border-color: ${getRoomColor(room.type)};
+                            background: ${getRoomColor(room.type)}40;
+                        `;
+                    }
+                    
+                    roomDiv.innerHTML = `
+                        <div class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.7);">
+                            ${room.name}<br>
+                            <span class="text-xs">${room.area} sq ft</span>
+                        </div>
+                    `;
+                    
+                    roomDiv.onclick = () => editRoom(room.id);
+                    editor.appendChild(roomDiv);
+                });
+            } else {
+                // Default view when no image is uploaded
+                editor.style.backgroundImage = 'none';
+                editor.innerHTML = `
+                    <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                        <div class="text-center">
+                            <i class="fas fa-home text-4xl mb-4"></i>
+                            <div>Upload a floor plan to start room analysis</div>
+                        </div>
                     </div>
                 `;
-                editor.appendChild(roomDiv);
-            });
+            }
         }
 
         function getRoomColor(type) {
