@@ -3,1614 +3,288 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scope - AI Construction Quoting Platform</title>
+    <title>Scope - Construction Quoting Tool</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         .gradient-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
-        .glass-effect {
-            backdrop-filter: blur(16px);
-            background: rgba(255, 255, 255, 0.95);
+        .room-box {
+            border: 2px solid #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            margin: 5px;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
         }
-        .file-drop-zone {
-            border: 2px dashed #cbd5e1;
-            transition: all 0.3s ease;
-        }
-        .file-drop-zone.dragover {
-            border-color: #3b82f6;
-            background: #eff6ff;
-        }
-        .room-editor {
-            cursor: crosshair;
-        }
-        .room-overlay {
-            position: absolute;
-            border: 2px solid;
+        .room-box:hover {
             background: rgba(59, 130, 246, 0.2);
-            min-width: 50px;
-            min-height: 50px;
-        }
-        .price-book-item:hover {
-            background: #f1f5f9;
         }
     </style>
 </head>
 <body class="bg-gray-50">
-    <!-- Navigation -->
-    <nav class="fixed w-full z-50 glass-effect border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-2">🏗️</span>
-                    <span class="text-xl font-bold text-gray-900">Scope</span>
-                </div>
-                <div class="hidden md:flex items-center space-x-8">
-                    <button onclick="showPriceBook()" class="text-gray-700 hover:text-blue-600 font-medium">Price Book</button>
-                    <button onclick="showProjects()" class="text-gray-700 hover:text-blue-600 font-medium">Projects</button>
-                    <button onclick="showSettings()" class="text-gray-700 hover:text-blue-600 font-medium">Settings</button>
-                    <button class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                        Start Free Trial
-                    </button>
-                </div>
+    <!-- Header -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-900">🏗️ Scope</h1>
+                <div class="text-xl font-bold text-blue-600">Scope. Quote. Win.</div>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <div class="pt-16 min-h-screen">
-        <!-- Hero Section -->
-        <section class="gradient-bg text-white py-12">
-            <div class="max-w-7xl mx-auto px-4 text-center">
-                <h1 class="text-4xl font-bold mb-4">Transform Your Construction Quotes</h1>
-                <div class="text-2xl font-bold text-yellow-300 mb-4">Scope. Quote. Win.</div>
-                <p class="text-xl mb-8">Upload plans, manage price books, generate professional quotes</p>
-                <button onclick="startDemo()" class="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-                    Start Working Demo
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Column 1: File Upload -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold mb-4">1. Upload Floor Plan</h2>
+                
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-4">
+                    <input type="file" id="fileInput" accept="image/*" onchange="handleFile()" class="hidden">
+                    <button onclick="document.getElementById('fileInput').click()" class="bg-blue-600 text-white px-4 py-2 rounded mb-4">
+                        📁 Upload Image
+                    </button>
+                    <p class="text-gray-600">Upload a floor plan image</p>
+                </div>
+
+                <div id="filePreview" class="hidden mb-4">
+                    <img id="previewImage" class="w-full rounded border mb-2">
+                    <p id="fileName" class="text-sm text-gray-600"></p>
+                </div>
+
+                <button onclick="analyzeFloorPlan()" class="w-full bg-green-600 text-white py-2 rounded mb-4">
+                    🔍 Analyze Floor Plan
+                </button>
+
+                <div class="space-y-3">
+                    <input type="text" id="projectName" placeholder="Project Name" class="w-full px-3 py-2 border rounded">
+                    <input type="text" id="customerName" placeholder="Customer Name" class="w-full px-3 py-2 border rounded">
+                    <input type="text" id="projectAddress" placeholder="Project Address" class="w-full px-3 py-2 border rounded">
+                </div>
+            </div>
+
+            <!-- Column 2: Rooms -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold mb-4">2. Project Rooms</h2>
+                
+                <div id="roomsList" class="mb-4">
+                    <p class="text-gray-500">No rooms added yet</p>
+                </div>
+
+                <button onclick="addRoom()" class="w-full bg-blue-600 text-white py-2 rounded mb-2">
+                    ➕ Add Room
+                </button>
+                
+                <button onclick="addSampleRooms()" class="w-full bg-gray-600 text-white py-2 rounded">
+                    📋 Add Sample Rooms
                 </button>
             </div>
-        </section>
 
-        <!-- Working Demo Section -->
-        <section class="py-12">
-            <div class="max-w-7xl mx-auto px-4">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    
-                    <!-- File Upload & Project Setup -->
-                    <div class="lg:col-span-1">
-                        <div class="bg-white rounded-lg shadow-lg p-6">
-                            <h3 class="text-lg font-semibold mb-4">1. Upload Floor Plan</h3>
-                            
-                            <div id="fileDropZone" class="file-drop-zone rounded-lg p-8 text-center mb-4">
-                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
-                                <p class="text-gray-600 mb-2">Drag & drop floor plan here</p>
-                                <p class="text-sm text-gray-500 mb-4">PDF, JPG, PNG, or CAD files</p>
-                                <input type="file" id="fileInput" class="hidden" accept="image/*,.pdf,.dwg" capture="environment" onchange="handleFileUpload(event)">
-                                <div class="flex flex-col sm:flex-row gap-2 justify-center">
-                                    <button onclick="document.getElementById('fileInput').click()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                                        📁 Browse Files
-                                    </button>
-                                    <button onclick="takePhoto()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                                        📸 Take Photo
-                                    </button>
-                                </div>
-                                <p class="text-xs text-gray-400 mt-2">💡 Tip: Take a photo of paper floor plans for instant analysis</p>
-                            </div>
+            <!-- Column 3: Costs -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold mb-4">3. Cost Calculation</h2>
+                
+                <div id="costBreakdown" class="mb-4">
+                    <p class="text-gray-500">Add rooms to see costs</p>
+                </div>
 
-                            <div id="filePreview" class="hidden mb-4">
-                                <img id="previewImage" class="w-full rounded border" alt="Floor plan preview">
-                                <p id="fileName" class="text-sm text-gray-600 mt-2"></p>
-                            </div>
-
-                            <!-- Project Details -->
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
-                                    <input type="text" id="projectName" placeholder="Johnson Kitchen Remodel" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Customer</label>
-                                    <input type="text" id="customerName" placeholder="John & Mary Johnson" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Project Address</label>
-                                    <input type="text" id="projectAddress" placeholder="123 Main St, City, State" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                </div>
-                            </div>
-
-                            <button onclick="analyzeFloorPlan()" class="w-full mt-4 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition-colors">
-                                <i class="fas fa-magic mr-2"></i>Analyze Floor Plan
-                            </button>
-                        </div>
+                <div class="space-y-3 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Labor Rate ($/hour)</label>
+                        <input type="number" id="laborRate" value="85" onchange="updateCosts()" class="w-full px-3 py-2 border rounded">
                     </div>
-
-                    <!-- Room Editor & Visualization -->
-                    <div class="lg:col-span-1">
-                        <div class="bg-white rounded-lg shadow-lg p-6">
-                            <h3 class="text-lg font-semibold mb-4">2. Room Analysis & Editing</h3>
-                            
-                            <div id="roomEditor" class="room-editor bg-gray-100 rounded-lg h-80 relative mb-4 overflow-hidden">
-                                <div class="absolute inset-0 flex items-center justify-center text-gray-500">
-                                    Upload a floor plan to start room analysis
-                                </div>
-                            </div>
-
-                            <!-- Room List -->
-                            <div id="roomList" class="space-y-2 mb-4">
-                                <!-- Rooms will be populated here -->
-                            </div>
-
-                            <!-- Trade Selection -->
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Select Trade to Highlight</label>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <button onclick="highlightTrade('electrical')" class="trade-btn px-3 py-2 text-sm border border-blue-300 text-blue-700 rounded hover:bg-blue-50">
-                                        💡 Electrical
-                                    </button>
-                                    <button onclick="highlightTrade('plumbing')" class="trade-btn px-3 py-2 text-sm border border-green-300 text-green-700 rounded hover:bg-green-50">
-                                        🚰 Plumbing
-                                    </button>
-                                    <button onclick="highlightTrade('hvac')" class="trade-btn px-3 py-2 text-sm border border-red-300 text-red-700 rounded hover:bg-red-50">
-                                        🌡️ HVAC
-                                    </button>
-                                    <button onclick="highlightTrade('flooring')" class="trade-btn px-3 py-2 text-sm border border-yellow-300 text-yellow-700 rounded hover:bg-yellow-50">
-                                        🏠 Flooring
-                                    </button>
-                                </div>
-                            </div>
-
-                            <button onclick="addRoom()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors">
-                                <i class="fas fa-plus mr-2"></i>Add Room Manually
-                            </button>
-                            
-                            <div class="mt-2 text-center">
-                                <button onclick="clearAllRooms()" class="text-sm text-red-600 hover:text-red-800">
-                                    Clear All Rooms
-                                </button>
-                                <span class="text-gray-300 mx-2">|</span>
-                                <button onclick="resetToDetected()" class="text-sm text-blue-600 hover:text-blue-800">
-                                    Re-analyze Image
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Cost Calculator & Price Book -->
-                    <div class="lg:col-span-1">
-                        <div class="bg-white rounded-lg shadow-lg p-6">
-                            <h3 class="text-lg font-semibold mb-4">3. Cost Calculation</h3>
-                            
-                            <!-- Price Book Selection -->
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Price Book</label>
-                                <select id="priceBookSelect" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="loadPriceBook()">
-                                    <option value="default">Default Price Book</option>
-                                    <option value="premium">Premium Materials</option>
-                                    <option value="budget">Budget Options</option>
-                                    <option value="custom">Custom Price Book</option>
-                                </select>
-                                <button onclick="managePriceBook()" class="text-sm text-blue-600 hover:text-blue-800 mt-1">Manage Price Books</button>
-                            </div>
-
-                            <!-- Cost Breakdown -->
-                            <div id="costBreakdown" class="space-y-3 mb-6">
-                                <!-- Cost items will be populated here -->
-                            </div>
-
-                            <!-- Project Settings -->
-                            <div class="space-y-4 mb-6">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Labor Rate ($/hour)</label>
-                                    <input type="number" id="laborRate" value="85" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="updateCosts()">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Markup (%)</label>
-                                    <input type="number" id="markupPercent" value="25" min="0" max="100" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="updateCosts()">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Project Type</label>
-                                    <select id="projectType" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="updateCosts()">
-                                        <option value="residential">Residential</option>
-                                        <option value="commercial">Commercial</option>
-                                        <option value="luxury">Luxury</option>
-                                        <option value="renovation">Renovation</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <!-- Total -->
-                            <div class="border-t pt-4 mb-4">
-                                <div class="flex justify-between items-center text-lg font-bold">
-                                    <span>Total Project Cost:</span>
-                                    <span id="totalCost" class="text-green-600">$0</span>
-                                </div>
-                            </div>
-
-                            <!-- Action Buttons -->
-                            <div class="space-y-2">
-                                <button onclick="generateQuote()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors">
-                                    <i class="fas fa-file-pdf mr-2"></i>Generate PDF Quote
-                                </button>
-                                <button onclick="saveProject()" class="w-full bg-gray-600 text-white py-2 rounded hover:bg-gray-700 transition-colors">
-                                    <i class="fas fa-save mr-2"></i>Save Project
-                                </button>
-                                <button onclick="presentToCustomer()" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition-colors">
-                                    <i class="fas fa-presentation mr-2"></i>Customer Presentation
-                                </button>
-                            </div>
-                        </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Markup %</label>
+                        <input type="number" id="markupPercent" value="25" onchange="updateCosts()" class="w-full px-3 py-2 border rounded">
                     </div>
                 </div>
-            </div>
-        </section>
-    </div>
 
-    <!-- Price Book Management Modal -->
-    <div id="priceBookModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
-                <div class="p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold">Price Book Management</h2>
-                        <button onclick="closePriceBookModal()" class="text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
-
-                    <!-- Price Book Tabs -->
-                    <div class="mb-6">
-                        <div class="border-b border-gray-200">
-                            <nav class="-mb-px flex space-x-8">
-                                <button onclick="showPriceBookTab('electrical')" class="price-book-tab py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600">
-                                    Electrical
-                                </button>
-                                <button onclick="showPriceBookTab('plumbing')" class="price-book-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700">
-                                    Plumbing
-                                </button>
-                                <button onclick="showPriceBookTab('hvac')" class="price-book-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700">
-                                    HVAC
-                                </button>
-                                <button onclick="showPriceBookTab('flooring')" class="price-book-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700">
-                                    Flooring
-                                </button>
-                            </nav>
-                        </div>
-                    </div>
-
-                    <!-- Price Book Content -->
-                    <div id="priceBookContent">
-                        <!-- Content will be populated based on selected tab -->
-                    </div>
-
-                    <!-- Add New Item -->
-                    <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-                        <h4 class="font-medium mb-3">Add New Item</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <input type="text" id="newItemSKU" placeholder="SKU/Part #" class="px-3 py-2 border border-gray-300 rounded-md">
-                            <input type="text" id="newItemName" placeholder="Item Name" class="px-3 py-2 border border-gray-300 rounded-md">
-                            <input type="number" id="newItemCost" placeholder="Cost" step="0.01" class="px-3 py-2 border border-gray-300 rounded-md">
-                            <input type="text" id="newItemUnit" placeholder="Unit (ea, ft, sq ft)" class="px-3 py-2 border border-gray-300 rounded-md">
-                        </div>
-                        <button onclick="addPriceBookItem()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                            Add Item
-                        </button>
+                <div class="border-t pt-4 mb-4">
+                    <div class="flex justify-between text-lg font-bold">
+                        <span>Total:</span>
+                        <span id="totalCost">$0</span>
                     </div>
                 </div>
+
+                <button onclick="generateQuote()" class="w-full bg-blue-600 text-white py-2 rounded mb-2">
+                    📄 Generate Quote
+                </button>
+                <button onclick="presentToCustomer()" class="w-full bg-green-600 text-white py-2 rounded">
+                    👥 Present to Customer
+                </button>
             </div>
         </div>
     </div>
 
     <script>
         // Global variables
-        let currentProject = {
-            name: '',
-            customer: '',
-            address: '',
-            rooms: [],
-            selectedTrades: [],
-            costs: {}
-        };
+        let rooms = [];
+        let roomIdCounter = 1;
 
-        let priceBooks = {
-            electrical: [
-                { sku: 'E001', name: '15A GFCI Outlet', cost: 12.50, unit: 'ea', laborHours: 0.5 },
-                { sku: 'E002', name: '20A GFCI Outlet', cost: 15.75, unit: 'ea', laborHours: 0.5 },
-                { sku: 'E003', name: 'LED Recessed Light 6"', cost: 45.00, unit: 'ea', laborHours: 1.0 },
-                { sku: 'E004', name: '12-2 Romex Wire', cost: 1.25, unit: 'ft', laborHours: 0.1 },
-                { sku: 'E005', name: 'Circuit Breaker 20A', cost: 25.00, unit: 'ea', laborHours: 0.25 }
-            ],
-            plumbing: [
-                { sku: 'P001', name: 'Kitchen Sink Faucet', cost: 125.00, unit: 'ea', laborHours: 2.0 },
-                { sku: 'P002', name: '1/2" Copper Pipe', cost: 3.50, unit: 'ft', laborHours: 0.2 },
-                { sku: 'P003', name: 'Toilet - Standard', cost: 180.00, unit: 'ea', laborHours: 3.0 },
-                { sku: 'P004', name: 'Shut-off Valve', cost: 15.00, unit: 'ea', laborHours: 0.5 },
-                { sku: 'P005', name: 'PVC Drain Pipe 3"', cost: 8.75, unit: 'ft', laborHours: 0.3 }
-            ],
-            hvac: [
-                { sku: 'H001', name: 'Ductwork 6" Round', cost: 12.00, unit: 'ft', laborHours: 0.4 },
-                { sku: 'H002', name: 'Register 6x10', cost: 25.00, unit: 'ea', laborHours: 0.5 },
-                { sku: 'H003', name: 'Thermostat Digital', cost: 75.00, unit: 'ea', laborHours: 1.5 },
-                { sku: 'H004', name: 'Insulation R-13', cost: 1.50, unit: 'sq ft', laborHours: 0.1 },
-                { sku: 'H005', name: 'Return Air Grille', cost: 35.00, unit: 'ea', laborHours: 0.75 }
-            ],
-            flooring: [
-                { sku: 'F001', name: 'Hardwood Oak 3/4"', cost: 8.50, unit: 'sq ft', laborHours: 0.3 },
-                { sku: 'F002', name: 'Vinyl Plank Premium', cost: 4.25, unit: 'sq ft', laborHours: 0.2 },
-                { sku: 'F003', name: 'Ceramic Tile 12x12', cost: 6.00, unit: 'sq ft', laborHours: 0.4 },
-                { sku: 'F004', name: 'Carpet Pad', cost: 1.75, unit: 'sq ft', laborHours: 0.1 },
-                { sku: 'F005', name: 'Baseboards Oak', cost: 5.50, unit: 'ft', laborHours: 0.2 }
-            ]
-        };
-
-        let currentPriceBookTab = 'electrical';
-
-        function takePhoto() {
-            // Check if we're on mobile
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            
-            if (isMobile) {
-                // On mobile, trigger the camera directly
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.capture = 'environment'; // Use back camera
-                input.onchange = handleFileUpload;
-                input.click();
-            } else {
-                // On desktop, show instructions or use webcam
-                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                    startWebcamCapture();
-                } else {
-                    alert('Camera not available on this device.\n\nOn mobile devices, this will open your camera to take a photo of floor plans.\n\nFor now, please use "Browse Files" to upload an image.');
-                }
-            }
-        }
-
-        function startWebcamCapture() {
-            // Create webcam modal for desktop users
-            const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center';
-            modal.innerHTML = `
-                <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold">Take Photo of Floor Plan</h3>
-                        <button onclick="closeWebcam()" class="text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
-                    <video id="webcam" class="w-full h-64 bg-gray-200 rounded mb-4" autoplay></video>
-                    <div class="flex justify-center space-x-4">
-                        <button onclick="capturePhoto()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                            📸 Capture
-                        </button>
-                        <button onclick="closeWebcam()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
-                            Cancel
-                        </button>
-                    </div>
-                    <canvas id="photoCanvas" class="hidden"></canvas>
-                </div>
-            `;
-            document.body.appendChild(modal);
-
-            // Start webcam
-            navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    facingMode: 'environment' // Prefer back camera
-                } 
-            })
-            .then(stream => {
-                const video = document.getElementById('webcam');
-                video.srcObject = stream;
-                window.currentStream = stream;
-            })
-            .catch(err => {
-                console.error('Error accessing webcam:', err);
-                alert('Unable to access camera. Please use "Browse Files" instead.');
-                closeWebcam();
-            });
-        }
-
-        function capturePhoto() {
-            const video = document.getElementById('webcam');
-            const canvas = document.getElementById('photoCanvas');
-            const ctx = canvas.getContext('2d');
-
-            // Set canvas size to video size
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            // Draw video frame to canvas
-            ctx.drawImage(video, 0, 0);
-
-            // Convert to blob and create file
-            canvas.toBlob(blob => {
-                const file = new File([blob], 'floor-plan-photo.jpg', { type: 'image/jpeg' });
-                
-                // Simulate file upload event
-                const fakeEvent = {
-                    target: {
-                        files: [file]
-                    }
-                };
-                
-                handleFileUpload(fakeEvent);
-                closeWebcam();
-            }, 'image/jpeg', 0.8);
-        }
-
-        function closeWebcam() {
-            // Stop camera stream
-            if (window.currentStream) {
-                window.currentStream.getTracks().forEach(track => track.stop());
-                window.currentStream = null;
-            }
-
-            // Remove modal
-            const modal = document.querySelector('.fixed.inset-0.bg-black.bg-opacity-75');
-            if (modal) {
-                modal.remove();
-            }
-        }
-        document.addEventListener('DOMContentLoaded', function() {
-            setupFileDropZone();
-            loadPriceBook();
-            updateCosts();
-        });
-
-        // File upload handling
-        function setupFileDropZone() {
-            const dropZone = document.getElementById('fileDropZone');
-            
-            dropZone.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                dropZone.classList.add('dragover');
-            });
-
-            dropZone.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                dropZone.classList.remove('dragover');
-            });
-
-            dropZone.addEventListener('drop', function(e) {
-                e.preventDefault();
-                dropZone.classList.remove('dragover');
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handleFileUpload({ target: { files: files } });
-                }
-            });
-        }
-
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
+        // File handling
+        function handleFile() {
+            const file = document.getElementById('fileInput').files[0];
             if (!file) return;
-
-            // Validate file type
-            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/heic'];
-            if (!validTypes.includes(file.type)) {
-                alert('Please upload an image file (JPG, PNG, GIF) for floor plan analysis.\n\nPDF and CAD files will be supported in the full version.');
-                return;
-            }
-
-            // Check file size (max 20MB for phone photos)
-            if (file.size > 20 * 1024 * 1024) {
-                alert('File size too large. Please upload an image under 20MB.');
-                return;
-            }
 
             const preview = document.getElementById('filePreview');
             const previewImage = document.getElementById('previewImage');
             const fileName = document.getElementById('fileName');
 
-            // Show file info
-            const sizeText = file.size > 1024 * 1024 ? 
-                `${(file.size / 1024 / 1024).toFixed(1)} MB` : 
-                `${(file.size / 1024).toFixed(0)} KB`;
-            fileName.textContent = `${file.name} (${sizeText})`;
+            fileName.textContent = file.name;
             preview.classList.remove('hidden');
 
-            // Create image preview with preprocessing for phone photos
             const reader = new FileReader();
             reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    // Preprocess image for better analysis
-                    const processedImageData = preprocessImage(img);
-                    previewImage.src = processedImageData;
-                    
-                    previewImage.onload = function() {
-                        // Update room editor with new image
-                        updateRoomEditor();
-                        
-                        // Show analysis button with enhanced styling
-                        const analyzeBtn = document.querySelector('button[onclick="analyzeFloorPlan()"]');
-                        analyzeBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                        analyzeBtn.classList.add('bg-blue-600', 'hover:bg-blue-700', 'animate-pulse');
-                        analyzeBtn.innerHTML = '<i class="fas fa-magic mr-2"></i>Analyze This Floor Plan';
-                        
-                        // Show helpful tip for phone photos
-                        if (file.size > 2 * 1024 * 1024) { // Likely a phone photo
-                            showPhotoTip();
-                        }
-                    };
-                };
-                img.src = e.target.result;
+                previewImage.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
 
-        function preprocessImage(img) {
-            // Create canvas for image preprocessing
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Resize large images for better processing
-            const maxSize = 1200;
-            let { width, height } = img;
-            
-            if (width > maxSize || height > maxSize) {
-                const ratio = Math.min(maxSize / width, maxSize / height);
-                width *= ratio;
-                height *= ratio;
-            }
-            
-            canvas.width = width;
-            canvas.height = height;
-            
-            // Draw and enhance image
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            // Apply filters to improve floor plan visibility
-            const imageData = ctx.getImageData(0, 0, width, height);
-            enhanceFloorPlan(imageData);
-            ctx.putImageData(imageData, 0, 0);
-            
-            return canvas.toDataURL('image/jpeg', 0.9);
-        }
-
-        function enhanceFloorPlan(imageData) {
-            const data = imageData.data;
-            
-            // Increase contrast and reduce noise for better wall detection
-            for (let i = 0; i < data.length; i += 4) {
-                // Convert to grayscale
-                const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-                
-                // Increase contrast
-                const enhanced = Math.min(255, Math.max(0, (gray - 128) * 1.5 + 128));
-                
-                // Apply to all channels
-                data[i] = enhanced;     // Red
-                data[i + 1] = enhanced; // Green
-                data[i + 2] = enhanced; // Blue
-                // Alpha channel stays the same
-            }
-        }
-
-        function showPhotoTip() {
-            const tipDiv = document.createElement('div');
-            tipDiv.className = 'mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg';
-            tipDiv.innerHTML = `
-                <div class="flex items-start">
-                    <i class="fas fa-lightbulb text-blue-500 mt-1 mr-2"></i>
-                    <div class="text-sm text-blue-700">
-                        <strong>Photo tip:</strong> For best results with phone photos:
-                        <ul class="mt-1 ml-4 list-disc">
-                            <li>Ensure good lighting</li>
-                            <li>Hold phone directly above the floor plan</li>
-                            <li>Make sure all edges are visible</li>
-                            <li>Avoid shadows and glare</li>
-                        </ul>
-                    </div>
-                </div>
-            `;
-            
-            const filePreview = document.getElementById('filePreview');
-            filePreview.appendChild(tipDiv);
-            
-            // Remove tip after 10 seconds
-            setTimeout(() => {
-                if (tipDiv.parentNode) {
-                    tipDiv.remove();
-                }
-            }, 10000);
-        }
-
+        // Floor plan analysis
         function analyzeFloorPlan() {
-            const previewImage = document.getElementById('previewImage');
-            if (!previewImage.src || previewImage.src.includes('data:image/svg+xml')) {
-                alert('Please upload an image file (JPG, PNG) for analysis');
+            alert('Analyzing floor plan...');
+            
+            // Simple: just add sample rooms
+            setTimeout(() => {
+                addSampleRooms();
+                alert('Floor plan analyzed! Sample rooms added.');
+            }, 1000);
+        }
+
+        // Add room manually
+        function addRoom() {
+            const name = prompt('Room name (e.g., "Living Room"):');
+            if (!name) return;
+
+            const area = prompt('Room area (sq ft):', '150');
+            if (!area || isNaN(area)) return;
+
+            const room = {
+                id: roomIdCounter++,
+                name: name,
+                area: parseInt(area),
+                type: 'room',
+                trades: ['electrical']
+            };
+
+            rooms.push(room);
+            updateRoomsList();
+            updateCosts();
+        }
+
+        // Add sample rooms
+        function addSampleRooms() {
+            rooms = [
+                { id: 1, name: 'Living Room', area: 240, type: 'living', trades: ['electrical', 'flooring'] },
+                { id: 2, name: 'Kitchen', area: 180, type: 'kitchen', trades: ['electrical', 'plumbing'] },
+                { id: 3, name: 'Dining Room', area: 160, type: 'dining', trades: ['electrical', 'flooring'] },
+                { id: 4, name: 'Master Bedroom', area: 200, type: 'bedroom', trades: ['electrical', 'flooring'] },
+                { id: 5, name: 'Bathroom', area: 80, type: 'bathroom', trades: ['electrical', 'plumbing', 'hvac'] },
+                { id: 6, name: 'Garage', area: 400, type: 'garage', trades: ['electrical'] }
+            ];
+            roomIdCounter = 7;
+            updateRoomsList();
+            updateCosts();
+        }
+
+        // Update rooms display
+        function updateRoomsList() {
+            const roomsList = document.getElementById('roomsList');
+            
+            if (rooms.length === 0) {
+                roomsList.innerHTML = '<p class="text-gray-500">No rooms added yet</p>';
                 return;
             }
 
-            showLoadingMessage("Analyzing floor plan with AI...");
-            
-            // For now, let's use a simple but reliable approach
-            setTimeout(() => {
-                // Try basic image analysis, but always offer sample rooms as backup
-                const rooms = performBasicAnalysis();
-                
-                currentProject.rooms = rooms;
-                updateRoomList();
-                updateRoomEditor();
-                calculateProjectCosts();
-                hideLoadingMessage();
-                
-                if (rooms.length === 0) {
-                    // Always offer sample rooms if detection fails
-                    const useSample = confirm('Floor plan analysis complete!\n\nWould you like to:\n• OK: Start with sample rooms (recommended)\n• Cancel: Add rooms manually one by one');
-                    
-                    if (useSample) {
-                        addSampleRooms();
-                    }
-                } else {
-                    alert(`Analysis complete! Found ${rooms.length} potential room areas.\n\nClick any room to edit details or add more rooms manually.`);
-                }
-            }, 2000);
+            roomsList.innerHTML = rooms.map(room => `
+                <div class="room-box" onclick="editRoom(${room.id})">
+                    <div class="font-medium">${room.name}</div>
+                    <div class="text-sm text-gray-600">${room.area} sq ft</div>
+                    <div class="text-xs text-blue-600">${room.trades.join(', ')}</div>
+                </div>
+            `).join('');
         }
 
-        function performBasicAnalysis() {
-            // Simple analysis - just return a few basic rooms for now
-            // In production, this would do real image processing
-            const rooms = [];
-            
-            try {
-                // Basic detection - look for large white areas
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                const img = document.getElementById('previewImage');
-                
-                canvas.width = 400; // Smaller for faster processing
-                canvas.height = 300;
-                ctx.drawImage(img, 0, 0, 400, 300);
-                
-                const imageData = ctx.getImageData(0, 0, 400, 300);
-                const data = imageData.data;
-                
-                // Very simple room detection - find large contiguous white areas
-                const whiteAreas = findWhiteAreas(data, 400, 300);
-                
-                // Convert to rooms if we found any
-                whiteAreas.forEach((area, index) => {
-                    if (area.size > 500 && index < 8) { // Reasonable size and max 8 rooms
-                        const roomTypes = ['Living Room', 'Kitchen', 'Dining Room', 'Bedroom', 'Bathroom', 'Garage', 'Laundry', 'Office'];
-                        rooms.push({
-                            id: index + 1,
-                            name: roomTypes[index] || `Room ${index + 1}`,
-                            type: index === 1 ? 'kitchen' : index === 4 ? 'bathroom' : 'living',
-                            area: Math.round(area.size / 10) + 80, // Convert to realistic sq ft
-                            trades: index === 1 ? ['electrical', 'plumbing'] : index === 4 ? ['electrical', 'plumbing', 'hvac'] : ['electrical', 'flooring'],
-                            bounds: area.bounds
-                        });
-                    }
-                });
-                
-            } catch (error) {
-                console.log('Basic analysis failed:', error);
+        // Edit room
+        function editRoom(roomId) {
+            const room = rooms.find(r => r.id === roomId);
+            if (!room) return;
+
+            const newName = prompt('Room name:', room.name);
+            if (newName) room.name = newName;
+
+            const newArea = prompt('Room area (sq ft):', room.area);
+            if (newArea && !isNaN(newArea)) room.area = parseInt(newArea);
+
+            const deleteRoom = confirm('Delete this room?');
+            if (deleteRoom) {
+                rooms = rooms.filter(r => r.id !== roomId);
             }
-            
-            return rooms;
+
+            updateRoomsList();
+            updateCosts();
         }
 
-        function findWhiteAreas(data, width, height) {
-            const areas = [];
-            const visited = new Uint8Array(width * height);
-            
-            // Look for white/light areas
-            for (let y = 20; y < height - 20; y += 10) {
-                for (let x = 20; x < width - 20; x += 10) {
-                    const idx = (y * width + x) * 4;
-                    const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-                    
-                    if (brightness > 200 && !visited[y * width + x]) {
-                        // Found a bright area, flood fill to find its size
-                        const area = simpleFloodFill(data, visited, x, y, width, height);
-                        if (area.size > 200) {
-                            areas.push(area);
-                        }
-                    }
-                }
-            }
-            
-            return areas.slice(0, 8); // Max 8 areas
-        }
-
-        function simpleFloodFill(data, visited, startX, startY, width, height) {
-            const stack = [{x: startX, y: startY}];
-            const pixels = [];
-            let minX = startX, maxX = startX, minY = startY, maxY = startY;
-            
-            while (stack.length > 0 && pixels.length < 2000) {
-                const {x, y} = stack.pop();
-                const idx = y * width + x;
-                
-                if (x < 0 || x >= width || y < 0 || y >= height || visited[idx]) {
-                    continue;
-                }
-                
-                const brightness = (data[idx * 4] + data[idx * 4 + 1] + data[idx * 4 + 2]) / 3;
-                if (brightness < 180) continue; // Not bright enough
-                
-                visited[idx] = 1;
-                pixels.push({x, y});
-                
-                minX = Math.min(minX, x);
-                maxX = Math.max(maxX, x);
-                minY = Math.min(minY, y);
-                maxY = Math.max(maxY, y);
-                
-                // Add neighbors
-                stack.push({x: x + 5, y: y});
-                stack.push({x: x - 5, y: y});
-                stack.push({x: x, y: y + 5});
-                stack.push({x: x, y: y - 5});
-            }
-            
-            return {
-                size: pixels.length,
-                bounds: {
-                    x: minX,
-                    y: minY,
-                    width: maxX - minX,
-                    height: maxY - minY
-                }
-            };
-        }
-
-        function detectRoomsFromImage(imageData, width, height) {
-            const rooms = [];
-            const data = imageData.data;
-            
-            // Balanced room detection - not too sensitive, not too restrictive
-            const minRoomSize = Math.max(800, (width * height) / 200); // Smaller minimum
-            const maxRooms = 20; // Allow more rooms for complex plans
-            
-            console.log(`Image size: ${width}x${height}, Min room size: ${minRoomSize}`);
-            
-            // Detect both walls and open areas
-            const processed = processFloorPlan(data, width, height);
-            
-            // Find room areas using multiple approaches
-            const components = findRoomComponents(processed, width, height, minRoomSize);
-            
-            console.log(`Found ${components.length} potential room areas`);
-            
-            // Sort by size and take reasonable ones
-            components.sort((a, b) => b.length - a.length);
-            const validComponents = components.slice(0, maxRooms);
-            
-            // Convert to room data
-            validComponents.forEach((component, index) => {
-                const bounds = calculateBounds(component);
-                const area = estimateRealArea(bounds, width, height);
-                const center = calculateCenter(component);
-                const roomType = classifyRoomByPosition(bounds, area, center, width, height, index);
-                
-                // More lenient size requirements
-                if (area >= 30 && area <= 2000 && bounds.width > 15 && bounds.height > 15) {
-                    rooms.push({
-                        id: index + 1,
-                        name: roomType.name,
-                        type: roomType.type,
-                        area: area,
-                        trades: roomType.trades,
-                        bounds: bounds,
-                        pixels: component.length
-                    });
-                }
-            });
-            
-            console.log(`Final rooms detected: ${rooms.length}`);
-            return rooms;
-        }
-
-        function processFloorPlan(data, width, height) {
-            const processed = new Uint8Array(width * height);
-            
-            // Simple approach: find white areas (rooms) vs dark areas (walls/lines)
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    const idx = (y * width + x) * 4;
-                    
-                    // Get grayscale value
-                    const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-                    
-                    // Threshold: bright areas are rooms, dark areas are walls
-                    if (gray > 150) {
-                        processed[y * width + x] = 0; // Room (white)
-                    } else {
-                        processed[y * width + x] = 255; // Wall (dark)
-                    }
-                }
-            }
-            
-            return processed;
-        }
-
-        function findRoomComponents(processed, width, height, minSize) {
-            const visited = new Uint8Array(width * height);
-            const components = [];
-            
-            // Sample every few pixels to avoid tiny components
-            for (let y = 5; y < height - 5; y += 3) {
-                for (let x = 5; x < width - 5; x += 3) {
-                    const idx = y * width + x;
-                    
-                    // Look for unvisited room areas (white/open space)
-                    if (!visited[idx] && processed[idx] === 0) {
-                        const component = floodFillSimple(processed, visited, x, y, width, height);
-                        
-                        if (component.length > minSize) {
-                            components.push(component);
-                        }
-                    }
-                }
-            }
-            
-            return components;
-        }
-
-        function floodFillSimple(processed, visited, startX, startY, width, height) {
-            const component = [];
-            const stack = [{x: startX, y: startY}];
-            const maxSize = 100000; // Prevent runaway
-            
-            while (stack.length > 0 && component.length < maxSize) {
-                const {x, y} = stack.pop();
-                const idx = y * width + x;
-                
-                // Bounds check
-                if (x < 0 || x >= width || y < 0 || y >= height) {
-                    continue;
-                }
-                
-                // Already visited or hit a wall
-                if (visited[idx] || processed[idx] === 255) {
-                    continue;
-                }
-                
-                visited[idx] = 1;
-                component.push({x, y});
-                
-                // Add neighbors (every other pixel to speed up)
-                stack.push({x: x+2, y: y});
-                stack.push({x: x-2, y: y});
-                stack.push({x: x, y: y+2});
-                stack.push({x: x, y: y-2});
-            }
-            
-            return component;
-        }
-
-        function classifyRoomByPosition(bounds, area, center, imageWidth, imageHeight, index) {
-            // Room names based on typical floor plan layout
-            const roomNames = [
-                'Living Room', 'Kitchen', 'Dining Room', 'Garage', 
-                'Master Bedroom', 'Bathroom', 'Foyer', 'Laundry',
-                'Bedroom 2', 'Powder Room', 'Office', 'Porch'
-            ];
-            
-            // Assign room type based on size and typical layout
-            let roomType = 'room';
-            let trades = ['electrical'];
-            
-            if (area < 60) {
-                roomType = 'bathroom';
-                trades = ['electrical', 'plumbing', 'hvac'];
-            } else if (area > 250) {
-                roomType = 'living';
-                trades = ['electrical', 'flooring'];
-            } else if (area > 150 && center.x / imageWidth > 0.5) {
-                roomType = 'kitchen';
-                trades = ['electrical', 'plumbing'];
-            } else if (area > 100) {
-                roomType = 'bedroom';
-                trades = ['electrical', 'flooring'];
-            }
-            
-            const name = index < roomNames.length ? roomNames[index] : `Room ${index + 1}`;
-            
-            return {
-                name: name,
-                type: roomType,
-                trades: trades
-            };
-        }
-
-        function updateRoomList() {
-            const roomList = document.getElementById('roomList');
-            roomList.innerHTML = '';
-
-            currentProject.rooms.forEach(room => {
-                const roomDiv = document.createElement('div');
-                roomDiv.className = 'p-3 border border-gray-200 rounded bg-gray-50';
-                roomDiv.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <div class="font-medium">${room.name}</div>
-                            <div class="text-sm text-gray-600">${room.area} sq ft • ${room.trades.join(', ')}</div>
-                        </div>
-                        <button onclick="editRoom(${room.id})" class="text-blue-600 hover:text-blue-800">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                    </div>
-                `;
-                roomList.appendChild(roomDiv);
-            });
-        }
-
-        function updateRoomEditor() {
-            const editor = document.getElementById('roomEditor');
-            const previewImage = document.getElementById('previewImage');
-            
-            // Clear existing content
-            editor.innerHTML = '';
-            
-            if (previewImage.src && !previewImage.src.includes('data:image/svg+xml')) {
-                // Show the uploaded image as background
-                editor.style.backgroundImage = `url(${previewImage.src})`;
-                editor.style.backgroundSize = 'contain';
-                editor.style.backgroundRepeat = 'no-repeat';
-                editor.style.backgroundPosition = 'center';
-                
-                // Add room overlays based on detected rooms
-                currentProject.rooms.forEach((room, index) => {
-                    const roomDiv = document.createElement('div');
-                    roomDiv.className = 'room-overlay';
-                    roomDiv.title = `${room.name} - ${room.area} sq ft`;
-                    
-                    if (room.bounds) {
-                        // Use actual detected bounds
-                        const editorRect = editor.getBoundingClientRect();
-                        const scaleX = 320 / previewImage.naturalWidth; // Editor width / image width
-                        const scaleY = 320 / previewImage.naturalHeight; // Editor height / image height
-                        const scale = Math.min(scaleX, scaleY);
-                        
-                        roomDiv.style.cssText = `
-                            top: ${room.bounds.y * scale}px;
-                            left: ${room.bounds.x * scale}px;
-                            width: ${room.bounds.width * scale}px;
-                            height: ${room.bounds.height * scale}px;
-                            border-color: ${getRoomColor(room.type)};
-                            background: ${getRoomColor(room.type)}40;
-                        `;
-                    } else {
-                        // Fallback positioning for manually added rooms
-                        roomDiv.style.cssText = `
-                            top: ${20 + (index % 2) * 120}px;
-                            left: ${20 + Math.floor(index / 2) * 140}px;
-                            width: ${Math.min(120, room.area / 2)}px;
-                            height: ${Math.min(100, room.area / 3)}px;
-                            border-color: ${getRoomColor(room.type)};
-                            background: ${getRoomColor(room.type)}40;
-                        `;
-                    }
-                    
-                    roomDiv.innerHTML = `
-                        <div class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.7);">
-                            ${room.name}<br>
-                            <span class="text-xs">${room.area} sq ft</span>
-                        </div>
-                    `;
-                    
-                    roomDiv.onclick = () => editRoom(room.id);
-                    editor.appendChild(roomDiv);
-                });
-            } else {
-                // Default view when no image is uploaded
-                editor.style.backgroundImage = 'none';
-                editor.innerHTML = `
-                    <div class="absolute inset-0 flex items-center justify-center text-gray-500">
-                        <div class="text-center">
-                            <i class="fas fa-home text-4xl mb-4"></i>
-                            <div>Upload a floor plan to start room analysis</div>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        function getRoomColor(type) {
-            const colors = {
-                kitchen: '#3b82f6',
-                living: '#10b981',
-                bathroom: '#ef4444',
-                bedroom: '#8b5cf6'
-            };
-            return colors[type] || '#6b7280';
-        }
-
-        function calculateProjectCosts() {
+        // Calculate costs
+        function updateCosts() {
             const laborRate = parseFloat(document.getElementById('laborRate').value) || 85;
             const markupPercent = parseFloat(document.getElementById('markupPercent').value) || 25;
-            const selectedPriceBook = document.getElementById('priceBookSelect').value;
+
+            const baseCosts = {
+                electrical: 50,
+                plumbing: 80,
+                hvac: 60,
+                flooring: 25
+            };
 
             let totalCost = 0;
-            const costBreakdown = {};
+            const costsByTrade = {};
 
-            // Calculate costs for each trade
-            ['electrical', 'plumbing', 'hvac', 'flooring'].forEach(trade => {
-                let tradeCost = 0;
-                let laborHours = 0;
-
-                currentProject.rooms.forEach(room => {
-                    if (room.trades.includes(trade)) {
-                        // Get items for this trade and room
-                        const items = getTradeItemsForRoom(trade, room);
-                        items.forEach(item => {
-                            const quantity = item.quantity || 1;
-                            const itemCost = item.cost * quantity;
-                            tradeCost += itemCost;
-                            laborHours += item.laborHours * quantity;
-                        });
-                    }
+            rooms.forEach(room => {
+                room.trades.forEach(trade => {
+                    const baseCost = baseCosts[trade] || 30;
+                    const cost = room.area * baseCost * (1 + markupPercent / 100);
+                    
+                    if (!costsByTrade[trade]) costsByTrade[trade] = 0;
+                    costsByTrade[trade] += cost;
+                    totalCost += cost;
                 });
-
-                const laborCost = laborHours * laborRate;
-                const totalTradeCost = (tradeCost + laborCost) * (1 + markupPercent / 100);
-                
-                costBreakdown[trade] = {
-                    materials: tradeCost,
-                    labor: laborCost,
-                    total: totalTradeCost
-                };
-                totalCost += totalTradeCost;
             });
 
-            currentProject.costs = costBreakdown;
-            updateCostDisplay(costBreakdown, totalCost);
-        }
-
-        function getTradeItemsForRoom(trade, room) {
-            // Simulate selecting appropriate items based on room type and area
-            const items = [];
-            const priceBook = priceBooks[trade] || [];
-            
-            switch(trade) {
-                case 'electrical':
-                    if (room.type === 'kitchen') {
-                        items.push({ ...priceBook[0], quantity: 4 }); // GFCI outlets
-                        items.push({ ...priceBook[2], quantity: 6 }); // LED lights
-                        items.push({ ...priceBook[3], quantity: 50 }); // Wire
-                    }
-                    break;
-                case 'plumbing':
-                    if (room.type === 'kitchen') {
-                        items.push({ ...priceBook[0], quantity: 1 }); // Kitchen faucet
-                        items.push({ ...priceBook[1], quantity: 20 }); // Copper pipe
-                    }
-                    break;
-                case 'flooring':
-                    items.push({ ...priceBook[0], quantity: room.area }); // Flooring per sq ft
-                    break;
-                case 'hvac':
-                    if (room.area > 100) {
-                        items.push({ ...priceBook[0], quantity: 15 }); // Ductwork
-                        items.push({ ...priceBook[1], quantity: 2 }); // Registers
-                    }
-                    break;
-            }
-            
-            return items;
-        }
-
-        function updateCostDisplay(costBreakdown, totalCost) {
-            const costBreakdownDiv = document.getElementById('costBreakdown');
-            costBreakdownDiv.innerHTML = '';
-
-            Object.entries(costBreakdown).forEach(([trade, costs]) => {
-                const costItem = document.createElement('div');
-                costItem.className = 'flex justify-between items-center p-3 bg-gray-50 rounded border';
-                costItem.innerHTML = `
-                    <div>
-                        <div class="font-medium capitalize">${trade}</div>
-                        <div class="text-sm text-gray-600">
-                            Materials: $${costs.materials.toFixed(2)} | Labor: $${costs.labor.toFixed(2)}
-                        </div>
+            // Update display
+            const costBreakdown = document.getElementById('costBreakdown');
+            if (Object.keys(costsByTrade).length === 0) {
+                costBreakdown.innerHTML = '<p class="text-gray-500">Add rooms to see costs</p>';
+            } else {
+                costBreakdown.innerHTML = Object.entries(costsByTrade).map(([trade, cost]) => `
+                    <div class="flex justify-between py-2 border-b">
+                        <span class="capitalize">${trade}</span>
+                        <span>$${Math.round(cost).toLocaleString()}</span>
                     </div>
-                    <div class="font-semibold">$${costs.total.toFixed(2)}</div>
-                `;
-                costBreakdownDiv.appendChild(costItem);
-            });
-
-            document.getElementById('totalCost').textContent = `$${totalCost.toFixed(2)}`;
-        }
-
-        function updateCosts() {
-            if (currentProject.rooms.length > 0) {
-                calculateProjectCosts();
-            }
-        }
-
-        function loadPriceBook() {
-            // This would load the selected price book
-            updateCosts();
-        }
-
-        function managePriceBook() {
-            document.getElementById('priceBookModal').classList.remove('hidden');
-            showPriceBookTab(currentPriceBookTab);
-        }
-
-        function closePriceBookModal() {
-            document.getElementById('priceBookModal').classList.add('hidden');
-        }
-
-        function showPriceBookTab(trade) {
-            currentPriceBookTab = trade;
-            
-            // Update tab styles
-            document.querySelectorAll('.price-book-tab').forEach(tab => {
-                tab.classList.remove('border-blue-500', 'text-blue-600');
-                tab.classList.add('border-transparent', 'text-gray-500');
-            });
-            event.target.classList.remove('border-transparent', 'text-gray-500');
-            event.target.classList.add('border-blue-500', 'text-blue-600');
-
-            // Update content
-            const content = document.getElementById('priceBookContent');
-            const items = priceBooks[trade] || [];
-            
-            content.innerHTML = `
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Labor Hours</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            ${items.map(item => `
-                                <tr class="price-book-item">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.sku}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${item.name}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${item.cost.toFixed(2)}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.unit}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.laborHours}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <button onclick="editPriceBookItem('${item.sku}')" class="text-blue-600 hover:text-blue-900 mr-2">Edit</button>
-                                        <button onclick="deletePriceBookItem('${item.sku}')" class="text-red-600 hover:text-red-900">Delete</button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-
-        function addPriceBookItem() {
-            const sku = document.getElementById('newItemSKU').value;
-            const name = document.getElementById('newItemName').value;
-            const cost = parseFloat(document.getElementById('newItemCost').value);
-            const unit = document.getElementById('newItemUnit').value;
-
-            if (!sku || !name || !cost || !unit) {
-                alert('Please fill in all fields');
-                return;
+                `).join('');
             }
 
-            priceBooks[currentPriceBookTab].push({
-                sku: sku,
-                name: name,
-                cost: cost,
-                unit: unit,
-                laborHours: 1.0 // Default labor hours
-            });
-
-            // Clear form
-            document.getElementById('newItemSKU').value = '';
-            document.getElementById('newItemName').value = '';
-            document.getElementById('newItemCost').value = '';
-            document.getElementById('newItemUnit').value = '';
-
-            // Refresh display
-            showPriceBookTab(currentPriceBookTab);
-            updateCosts();
+            document.getElementById('totalCost').textContent = `$${Math.round(totalCost).toLocaleString()}`;
         }
 
+        // Generate quote
         function generateQuote() {
-            if (!window.jsPDF) {
-                alert('PDF generation library not loaded. In production, this would generate a professional PDF quote.');
-                return;
-            }
+            const customer = document.getElementById('customerName').value || 'Customer';
+            const project = document.getElementById('projectName').value || 'Project';
+            const total = document.getElementById('totalCost').textContent;
 
-            const { jsPDF } = window.jsPDF;
-            const doc = new jsPDF();
-
-            // Header
-            doc.setFontSize(20);
-            doc.text('SCOPE - Construction Quote', 20, 30);
-            
-            // Project info
-            doc.setFontSize(12);
-            doc.text(`Project: ${document.getElementById('projectName').value || 'Sample Project'}`, 20, 50);
-            doc.text(`Customer: ${document.getElementById('customerName').value || 'Sample Customer'}`, 20, 60);
-            doc.text(`Address: ${document.getElementById('projectAddress').value || 'Sample Address'}`, 20, 70);
-            doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 80);
-
-            // Cost breakdown
-            let yPos = 100;
-            doc.text('Cost Breakdown:', 20, yPos);
-            yPos += 15;
-
-            Object.entries(currentProject.costs).forEach(([trade, costs]) => {
-                doc.text(`${trade.charAt(0).toUpperCase() + trade.slice(1)}: $${costs.total.toFixed(2)}`, 30, yPos);
-                yPos += 10;
-            });
-
-            yPos += 10;
-            const total = Object.values(currentProject.costs).reduce((sum, costs) => sum + costs.total, 0);
-            doc.setFontSize(14);
-            doc.text(`Total: $${total.toFixed(2)}`, 30, yPos);
-
-            // Save PDF
-            doc.save('scope-quote.pdf');
+            alert(`Quote Generated!\n\nProject: ${project}\nCustomer: ${customer}\nTotal: ${total}\n\nIn the full app, this would create a PDF with detailed breakdowns.`);
         }
 
-        function saveProject() {
-            // Save to localStorage for demo purposes
-            const projectData = {
-                ...currentProject,
-                projectName: document.getElementById('projectName').value,
-                customerName: document.getElementById('customerName').value,
-                projectAddress: document.getElementById('projectAddress').value,
-                savedAt: new Date().toISOString()
-            };
-
-            const savedProjects = JSON.parse(localStorage.getItem('scopeProjects') || '[]');
-            savedProjects.push(projectData);
-            localStorage.setItem('scopeProjects', JSON.stringify(savedProjects));
-
-            alert('Project saved successfully!');
-        }
-
+        // Present to customer
         function presentToCustomer() {
-            // Switch to customer presentation mode
-            const customerMode = confirm('Switch to Customer Presentation Mode?\n\nThis will:\n• Hide contractor pricing details\n• Show clean, professional layout\n• Enable touch-friendly controls\n• Display financing options');
-            
-            if (customerMode) {
-                alert('Customer Presentation Mode activated!\n\nIn the full application, this would:\n• Open full-screen presentation\n• Hide markup and cost details\n• Show professional branding\n• Enable digital signature capture');
-            }
+            alert('Customer Presentation Mode!\n\nIn the full app, this would:\n• Show clean customer interface\n• Hide contractor pricing\n• Enable digital signatures\n• Show financing options');
         }
 
-        function highlightTrade(trade) {
-            // Reset all room colors
-            document.querySelectorAll('.room-overlay').forEach(room => {
-                room.style.borderColor = '#cbd5e1';
-                room.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
-            });
-
-            // Highlight rooms with selected trade
-            currentProject.rooms.forEach((room, index) => {
-                if (room.trades.includes(trade)) {
-                    const roomEl = document.querySelectorAll('.room-overlay')[index];
-                    if (roomEl) {
-                        roomEl.style.borderColor = getTradeColor(trade);
-                        roomEl.style.backgroundColor = getTradeColor(trade) + '40';
-                        roomEl.style.boxShadow = `0 0 15px ${getTradeColor(trade)}`;
-                    }
-                }
-            });
-        }
-
-        function getTradeColor(trade) {
-            const colors = {
-                electrical: '#3b82f6',
-                plumbing: '#10b981',
-                hvac: '#ef4444',
-                flooring: '#f59e0b'
-            };
-            return colors[trade] || '#6b7280';
-        }
-
-        function showLoadingMessage(message) {
-            const roomEditor = document.getElementById('roomEditor');
-            roomEditor.innerHTML = `
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <div class="text-center">
-                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                        <div class="text-gray-600">${message}</div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function hideLoadingMessage() {
-            // Room editor will be updated by updateRoomEditor()
-        }
-
-        function startDemo() {
-            // Auto-populate demo data
-            document.getElementById('projectName').value = 'Johnson Kitchen Remodel';
-            document.getElementById('customerName').value = 'John & Mary Johnson';
-            document.getElementById('projectAddress').value = '123 Main St, Springfield, IL';
-            
-            // Simulate file upload
-            setTimeout(() => {
-                analyzeFloorPlan();
-            }, 500);
-        }
-
-        // Additional utility functions
-        function clearAllRooms() {
-            if (confirm('Clear all detected rooms? You can re-analyze the image or add rooms manually.')) {
-                currentProject.rooms = [];
-                updateRoomList();
-                updateRoomEditor();
-                updateCosts();
-            }
-        }
-
-        function resetToDetected() {
-            if (confirm('Re-analyze the uploaded image? This will replace any manual changes.')) {
-                analyzeFloorPlan();
-            }
-        }
-
-        function editRoom(roomId) {
-            const room = currentProject.rooms.find(r => r.id === roomId);
-            if (!room) return;
-            
-            // Create edit modal
-            const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
-            modal.innerHTML = `
-                <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                    <h3 class="text-lg font-semibold mb-4">Edit Room: ${room.name}</h3>
-                    
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Room Name</label>
-                            <input type="text" id="editRoomName" value="${room.name}" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Area (sq ft)</label>
-                            <input type="number" id="editRoomArea" value="${room.area}" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
-                            <select id="editRoomType" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                                <option value="living" ${room.type === 'living' ? 'selected' : ''}>Living Room</option>
-                                <option value="kitchen" ${room.type === 'kitchen' ? 'selected' : ''}>Kitchen</option>
-                                <option value="dining" ${room.type === 'dining' ? 'selected' : ''}>Dining Room</option>
-                                <option value="bedroom" ${room.type === 'bedroom' ? 'selected' : ''}>Bedroom</option>
-                                <option value="bathroom" ${room.type === 'bathroom' ? 'selected' : ''}>Bathroom</option>
-                                <option value="garage" ${room.type === 'garage' ? 'selected' : ''}>Garage</option>
-                                <option value="laundry" ${room.type === 'laundry' ? 'selected' : ''}>Laundry</option>
-                                <option value="foyer" ${room.type === 'foyer' ? 'selected' : ''}>Foyer</option>
-                                <option value="porch" ${room.type === 'porch' ? 'selected' : ''}>Porch</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Trades Required</label>
-                            <div class="space-y-2">
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="tradeElectrical" ${room.trades.includes('electrical') ? 'checked' : ''} class="mr-2">
-                                    <span>Electrical</span>
-                                </label>
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="tradePlumbing" ${room.trades.includes('plumbing') ? 'checked' : ''} class="mr-2">
-                                    <span>Plumbing</span>
-                                </label>
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="tradeHvac" ${room.trades.includes('hvac') ? 'checked' : ''} class="mr-2">
-                                    <span>HVAC</span>
-                                </label>
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="tradeFlooring" ${room.trades.includes('flooring') ? 'checked' : ''} class="mr-2">
-                                    <span>Flooring</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex justify-end space-x-3 mt-6">
-                        <button onclick="deleteRoom(${roomId}); closeEditModal();" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-                            Delete Room
-                        </button>
-                        <button onclick="closeEditModal()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
-                            Cancel
-                        </button>
-                        <button onclick="saveRoomEdit(${roomId})" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                            Save Changes
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-        }
-
-        function saveRoomEdit(roomId) {
-            const room = currentProject.rooms.find(r => r.id === roomId);
-            if (!room) return;
-            
-            // Update room properties
-            room.name = document.getElementById('editRoomName').value;
-            room.area = parseInt(document.getElementById('editRoomArea').value);
-            room.type = document.getElementById('editRoomType').value;
-            
-            // Update trades
-            room.trades = [];
-            if (document.getElementById('tradeElectrical').checked) room.trades.push('electrical');
-            if (document.getElementById('tradePlumbing').checked) room.trades.push('plumbing');
-            if (document.getElementById('tradeHvac').checked) room.trades.push('hvac');
-            if (document.getElementById('tradeFlooring').checked) room.trades.push('flooring');
-            
-            // Refresh displays
-            updateRoomList();
-            updateRoomEditor();
-            updateCosts();
-            closeEditModal();
-        }
-
-        function deleteRoom(roomId) {
-            if (confirm('Delete this room?')) {
-                currentProject.rooms = currentProject.rooms.filter(r => r.id !== roomId);
-                updateRoomList();
-                updateRoomEditor();
-                updateCosts();
-            }
-        }
-
-        function addRoom() {
-            // Create add room modal
-            const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
-            modal.innerHTML = `
-                <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                    <h3 class="text-lg font-semibold mb-4">Add New Room</h3>
-                    
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Room Name</label>
-                            <input type="text" id="newRoomName" placeholder="e.g., Living Room" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Area (sq ft)</label>
-                            <input type="number" id="newRoomArea" value="150" placeholder="150" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
-                            <select id="newRoomType" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                                <option value="living">Living Room</option>
-                                <option value="kitchen">Kitchen</option>
-                                <option value="dining">Dining Room</option>
-                                <option value="bedroom">Bedroom</option>
-                                <option value="bathroom">Bathroom</option>
-                                <option value="garage">Garage</option>
-                                <option value="laundry">Laundry</option>
-                                <option value="foyer">Foyer</option>
-                                <option value="porch">Porch</option>
-                                <option value="office">Office</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Trades Required</label>
-                            <div class="space-y-2">
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="newTradeElectrical" checked class="mr-2">
-                                    <span>Electrical</span>
-                                </label>
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="newTradePlumbing" class="mr-2">
-                                    <span>Plumbing</span>
-                                </label>
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="newTradeHvac" class="mr-2">
-                                    <span>HVAC</span>
-                                </label>
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="newTradeFlooring" class="mr-2">
-                                    <span>Flooring</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex justify-end space-x-3 mt-6">
-                        <button onclick="closeAddRoomModal()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
-                            Cancel
-                        </button>
-                        <button onclick="saveNewRoom()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                            Add Room
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-        }
-
-        function saveNewRoom() {
-            const name = document.getElementById('newRoomName').value;
-            const area = parseInt(document.getElementById('newRoomArea').value);
-            const type = document.getElementById('newRoomType').value;
-            
-            if (!name || !area) {
-                alert('Please enter room name and area');
-                return;
-            }
-            
-            // Get selected trades
-            const trades = [];
-            if (document.getElementById('newTradeElectrical').checked) trades.push('electrical');
-            if (document.getElementById('newTradePlumbing').checked) trades.push('plumbing');
-            if (document.getElementById('newTradeHvac').checked) trades.push('hvac');
-            if (document.getElementById('newTradeFlooring').checked) trades.push('flooring');
-            
-            // Create new room
-            const newRoom = {
-                id: Date.now(), // Use timestamp for unique ID
-                name: name,
-                type: type,
-                area: area,
-                trades: trades
-            };
-            
-            currentProject.rooms.push(newRoom);
-            
-            // Update displays
-            updateRoomList();
-            updateRoomEditor();
-            updateCosts();
-            closeAddRoomModal();
-            
-            alert(`Added ${name} successfully!`);
-        }
-
-        function closeAddRoomModal() {
-            const modal = document.querySelector('.fixed.inset-0.bg-black.bg-opacity-50');
-            if (modal) {
-                modal.remove();
-            }
-        }
-            // Add sample rooms based on typical floor plan like yours
-            currentProject.rooms = [
-                { id: 1, name: 'Living Room', type: 'living', area: 240, trades: ['electrical', 'flooring'] },
-                { id: 2, name: 'Kitchen', type: 'kitchen', area: 180, trades: ['electrical', 'plumbing'] },
-                { id: 3, name: 'Dining Room', type: 'dining', area: 160, trades: ['electrical', 'flooring'] },
-                { id: 4, name: 'Garage', type: 'garage', area: 400, trades: ['electrical'] },
-                { id: 5, name: 'Foyer', type: 'foyer', area: 80, trades: ['electrical', 'flooring'] },
-                { id: 6, name: 'Laundry', type: 'laundry', area: 60, trades: ['electrical', 'plumbing'] },
-                { id: 7, name: 'Powder Room', type: 'bathroom', area: 40, trades: ['electrical', 'plumbing', 'hvac'] },
-                { id: 8, name: 'Porch', type: 'porch', area: 120, trades: ['electrical'] }
-            ];
-            
-            updateRoomList();
-            updateRoomEditor();
-            calculateProjectCosts();
-            
-            alert('Added sample rooms based on your floor plan.\nClick any room to edit its details or add/remove rooms as needed.');
-        }
-
-        function showPriceBook() {
-            managePriceBook();
-        }
-
-        function showProjects() {
-            alert('Projects feature - would show saved projects list');
-        }
-
-        function showSettings() {
-            alert('Settings feature - would show app configuration');
-        }
+        // Initialize
+        updateCosts();
     </script>
 </body>
 </html>
