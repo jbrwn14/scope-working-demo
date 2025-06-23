@@ -663,9 +663,16 @@
                     hideLoadingMessage();
                     
                     if (rooms.length === 0) {
-                        alert('No rooms detected. Try uploading a clearer floor plan or add rooms manually.');
+                        // Offer fallback options
+                        const fallback = confirm('No rooms detected automatically.\n\nWould you like to:\n• OK: Add sample rooms for this floor plan\n• Cancel: Add rooms manually');
+                        
+                        if (fallback) {
+                            addSampleRooms();
+                        } else {
+                            alert('Click "Add Room Manually" to create rooms, or try a different image with clearer room boundaries.');
+                        }
                     } else {
-                        alert(`Successfully analyzed floor plan!\nDetected ${rooms.length} room(s).`);
+                        alert(`Successfully analyzed floor plan!\nDetected ${rooms.length} room(s).\n\nClick any room to edit its details.`);
                     }
                 }, 1500);
                 
@@ -680,33 +687,36 @@
             const rooms = [];
             const data = imageData.data;
             
-            // More selective room detection for architectural floor plans
-            const processed = new Uint8Array(width * height);
-            const minRoomSize = Math.max(2000, (width * height) / 100); // Larger minimum size
-            const maxRooms = 15; // Reasonable limit for typical homes
+            // Balanced room detection - not too sensitive, not too restrictive
+            const minRoomSize = Math.max(800, (width * height) / 200); // Smaller minimum
+            const maxRooms = 20; // Allow more rooms for complex plans
             
-            // Convert to grayscale and detect walls more precisely
-            const walls = detectWalls(data, width, height);
+            console.log(`Image size: ${width}x${height}, Min room size: ${minRoomSize}`);
             
-            // Find larger enclosed areas that are likely actual rooms
-            const components = findRoomAreas(walls, width, height, minRoomSize);
+            // Detect both walls and open areas
+            const processed = processFloorPlan(data, width, height);
             
-            // Sort by size and take the largest ones (most likely to be real rooms)
+            // Find room areas using multiple approaches
+            const components = findRoomComponents(processed, width, height, minRoomSize);
+            
+            console.log(`Found ${components.length} potential room areas`);
+            
+            // Sort by size and take reasonable ones
             components.sort((a, b) => b.length - a.length);
             const validComponents = components.slice(0, maxRooms);
             
-            // Convert components to room data
+            // Convert to room data
             validComponents.forEach((component, index) => {
                 const bounds = calculateBounds(component);
                 const area = estimateRealArea(bounds, width, height);
                 const center = calculateCenter(component);
-                const roomType = classifyRoom(bounds, area, center, width, height, index);
+                const roomType = classifyRoomByPosition(bounds, area, center, width, height, index);
                 
-                // Only add if it's a reasonable room size
-                if (area >= 50 && area <= 1000 && bounds.width > 20 && bounds.height > 20) {
+                // More lenient size requirements
+                if (area >= 30 && area <= 2000 && bounds.width > 15 && bounds.height > 15) {
                     rooms.push({
                         id: index + 1,
-                        name: `${roomType.name}`,
+                        name: roomType.name,
                         type: roomType.type,
                         area: area,
                         trades: roomType.trades,
@@ -716,70 +726,45 @@
                 }
             });
             
+            console.log(`Final rooms detected: ${rooms.length}`);
             return rooms;
         }
 
-        function detectWalls(data, width, height) {
-            const walls = new Uint8Array(width * height);
-            const threshold = 80; // Higher threshold for cleaner wall detection
+        function processFloorPlan(data, width, height) {
+            const processed = new Uint8Array(width * height);
             
-            for (let y = 2; y < height - 2; y++) {
-                for (let x = 2; x < width - 2; x++) {
+            // Simple approach: find white areas (rooms) vs dark areas (walls/lines)
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
                     const idx = (y * width + x) * 4;
                     
-                    // Convert to grayscale
+                    // Get grayscale value
                     const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
                     
-                    // Detect dark lines (walls) - floor plans typically have dark walls on white background
-                    if (gray < threshold) {
-                        walls[y * width + x] = 255; // Wall
+                    // Threshold: bright areas are rooms, dark areas are walls
+                    if (gray > 150) {
+                        processed[y * width + x] = 0; // Room (white)
                     } else {
-                        walls[y * width + x] = 0; // Open space
+                        processed[y * width + x] = 255; // Wall (dark)
                     }
                 }
             }
             
-            // Clean up noise with morphological operations
-            return cleanupWalls(walls, width, height);
+            return processed;
         }
 
-        function cleanupWalls(walls, width, height) {
-            const cleaned = new Uint8Array(width * height);
-            
-            // Remove small noise and strengthen wall connections
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
-                    const idx = y * width + x;
-                    
-                    // Count wall neighbors
-                    let wallNeighbors = 0;
-                    for (let dy = -1; dy <= 1; dy++) {
-                        for (let dx = -1; dx <= 1; dx++) {
-                            if (walls[(y + dy) * width + (x + dx)] === 255) {
-                                wallNeighbors++;
-                            }
-                        }
-                    }
-                    
-                    // Keep walls that have enough wall neighbors
-                    cleaned[idx] = wallNeighbors >= 4 ? 255 : 0;
-                }
-            }
-            
-            return cleaned;
-        }
-
-        function findRoomAreas(walls, width, height, minSize) {
+        function findRoomComponents(processed, width, height, minSize) {
             const visited = new Uint8Array(width * height);
             const components = [];
             
-            for (let y = 10; y < height - 10; y += 5) { // Skip edges and sample less densely
-                for (let x = 10; x < width - 10; x += 5) {
+            // Sample every few pixels to avoid tiny components
+            for (let y = 5; y < height - 5; y += 3) {
+                for (let x = 5; x < width - 5; x += 3) {
                     const idx = y * width + x;
                     
-                    // Look for large open areas (not walls)
-                    if (!visited[idx] && walls[idx] === 0) {
-                        const component = floodFillRoom(walls, visited, x, y, width, height);
+                    // Look for unvisited room areas (white/open space)
+                    if (!visited[idx] && processed[idx] === 0) {
+                        const component = floodFillSimple(processed, visited, x, y, width, height);
                         
                         if (component.length > minSize) {
                             components.push(component);
@@ -791,68 +776,71 @@
             return components;
         }
 
-        function floodFillRoom(walls, visited, startX, startY, width, height) {
+        function floodFillSimple(processed, visited, startX, startY, width, height) {
             const component = [];
             const stack = [{x: startX, y: startY}];
-            const maxComponent = 50000; // Prevent infinite loops
+            const maxSize = 100000; // Prevent runaway
             
-            while (stack.length > 0 && component.length < maxComponent) {
+            while (stack.length > 0 && component.length < maxSize) {
                 const {x, y} = stack.pop();
                 const idx = y * width + x;
                 
-                if (x < 0 || x >= width || y < 0 || y >= height || 
-                    visited[idx] || walls[idx] === 255) {
+                // Bounds check
+                if (x < 0 || x >= width || y < 0 || y >= height) {
+                    continue;
+                }
+                
+                // Already visited or hit a wall
+                if (visited[idx] || processed[idx] === 255) {
                     continue;
                 }
                 
                 visited[idx] = 1;
                 component.push({x, y});
                 
-                // Add neighbors (less aggressive expansion)
-                if (component.length % 10 === 0) { // Sample less frequently
-                    stack.push({x: x+3, y: y});
-                    stack.push({x: x-3, y: y});
-                    stack.push({x: x, y: y+3});
-                    stack.push({x: x, y: y-3});
-                }
+                // Add neighbors (every other pixel to speed up)
+                stack.push({x: x+2, y: y});
+                stack.push({x: x-2, y: y});
+                stack.push({x: x, y: y+2});
+                stack.push({x: x, y: y-2});
             }
             
             return component;
         }
 
-        function classifyRoom(bounds, area, center, imageWidth, imageHeight, index) {
-            // More sophisticated room classification for your floor plan
-            const aspectRatio = bounds.width / bounds.height;
-            const position = {
-                x: center.x / imageWidth,
-                y: center.y / imageHeight
-            };
-            
-            // Predefined room types for typical home layout
-            const roomTypes = [
-                { name: 'Living Room', type: 'living', trades: ['electrical', 'flooring'] },
-                { name: 'Kitchen', type: 'kitchen', trades: ['electrical', 'plumbing'] },
-                { name: 'Dining Room', type: 'dining', trades: ['electrical', 'flooring'] },
-                { name: 'Garage', type: 'garage', trades: ['electrical'] },
-                { name: 'Foyer', type: 'foyer', trades: ['electrical', 'flooring'] },
-                { name: 'Laundry', type: 'laundry', trades: ['electrical', 'plumbing'] },
-                { name: 'Powder Room', type: 'bathroom', trades: ['electrical', 'plumbing', 'hvac'] },
-                { name: 'Porch', type: 'porch', trades: ['electrical'] }
+        function classifyRoomByPosition(bounds, area, center, imageWidth, imageHeight, index) {
+            // Room names based on typical floor plan layout
+            const roomNames = [
+                'Living Room', 'Kitchen', 'Dining Room', 'Garage', 
+                'Master Bedroom', 'Bathroom', 'Foyer', 'Laundry',
+                'Bedroom 2', 'Powder Room', 'Office', 'Porch'
             ];
             
-            // Return room type based on index and characteristics
-            if (index < roomTypes.length) {
-                return roomTypes[index];
+            // Assign room type based on size and typical layout
+            let roomType = 'room';
+            let trades = ['electrical'];
+            
+            if (area < 60) {
+                roomType = 'bathroom';
+                trades = ['electrical', 'plumbing', 'hvac'];
+            } else if (area > 250) {
+                roomType = 'living';
+                trades = ['electrical', 'flooring'];
+            } else if (area > 150 && center.x / imageWidth > 0.5) {
+                roomType = 'kitchen';
+                trades = ['electrical', 'plumbing'];
+            } else if (area > 100) {
+                roomType = 'bedroom';
+                trades = ['electrical', 'flooring'];
             }
             
-            // Fallback classification based on size and position
-            if (area < 80) {
-                return { name: 'Bathroom', type: 'bathroom', trades: ['electrical', 'plumbing', 'hvac'] };
-            } else if (area > 300) {
-                return { name: 'Living Area', type: 'living', trades: ['electrical', 'flooring'] };
-            } else {
-                return { name: 'Room', type: 'room', trades: ['electrical'] };
-            }
+            const name = index < roomNames.length ? roomNames[index] : `Room ${index + 1}`;
+            
+            return {
+                name: name,
+                type: roomType,
+                trades: trades
+            };
         }
 
         function updateRoomList() {
@@ -1400,11 +1388,24 @@
             }
         }
 
-        function closeEditModal() {
-            const modal = document.querySelector('.fixed.inset-0.bg-black.bg-opacity-50');
-            if (modal) {
-                modal.remove();
-            }
+        function addSampleRooms() {
+            // Add sample rooms based on typical floor plan like yours
+            currentProject.rooms = [
+                { id: 1, name: 'Living Room', type: 'living', area: 240, trades: ['electrical', 'flooring'] },
+                { id: 2, name: 'Kitchen', type: 'kitchen', area: 180, trades: ['electrical', 'plumbing'] },
+                { id: 3, name: 'Dining Room', type: 'dining', area: 160, trades: ['electrical', 'flooring'] },
+                { id: 4, name: 'Garage', type: 'garage', area: 400, trades: ['electrical'] },
+                { id: 5, name: 'Foyer', type: 'foyer', area: 80, trades: ['electrical', 'flooring'] },
+                { id: 6, name: 'Laundry', type: 'laundry', area: 60, trades: ['electrical', 'plumbing'] },
+                { id: 7, name: 'Powder Room', type: 'bathroom', area: 40, trades: ['electrical', 'plumbing', 'hvac'] },
+                { id: 8, name: 'Porch', type: 'porch', area: 120, trades: ['electrical'] }
+            ];
+            
+            updateRoomList();
+            updateRoomEditor();
+            calculateProjectCosts();
+            
+            alert('Added sample rooms based on your floor plan.\nClick any room to edit its details or add/remove rooms as needed.');
         }
 
         function showPriceBook() {
